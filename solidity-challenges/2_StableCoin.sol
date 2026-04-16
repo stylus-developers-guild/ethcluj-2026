@@ -23,8 +23,8 @@ interface IOracle {
 contract ClujUSD is ERC20("ClujUSD", "CUSD") {
     address public manager;
 
-    constructor(address _manager) {
-        manager = _manager;
+    constructor() {
+        manager = msg.sender;
     }
 
     // This is a keyword called "modifier" in solidity
@@ -60,9 +60,11 @@ contract Manager {
     mapping(address user => uint256 amount) public depositAmountOf;
     mapping(address user => uint256 amount) public mintedAmountOf;
 
-    constructor(address _weth, address _CUSD, address _oracle) {
+    constructor(address _weth, address _oracle) {
+        // We deploy our instance of the token at the same time we are
+        // deploying the manager
+        CUSD= new ClujUSD();
         weth = ERC20(_weth);
-        CUSD = ClujUSD(_CUSD);
         oracle = IOracle(_oracle);
     }
 

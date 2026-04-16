@@ -159,4 +159,4 @@ contract DEX {
     function min(uint256 _value1, uint256 _value2) private pure returns (uint256 _res) {
         _res = _value1 < _value2 ? _value1 : _value2;
     }
-} 
+}
