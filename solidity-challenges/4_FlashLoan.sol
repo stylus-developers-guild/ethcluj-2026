@@ -2,7 +2,7 @@
 pragma solidity 0.8.34;
 
 // First we implement the OpenZeppelin implementation of the ERC20 token, in order to avoid
-// having to reimplement it from scratch 
+// having to reimplement it from scratch
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 // After this we create an interface which is complient with oracles
@@ -34,7 +34,7 @@ contract ClujUSD is ERC20("ClujUSD", "CUSD") {
         require(manager == msg.sender);
         // Then in this line, the "_" is the placeholder for the actual function
         // if this line was before our "require(.." line, the function would execute before the actual
-        // require check 
+        // require check
         _;
     }
 
@@ -63,11 +63,10 @@ contract Manager {
     constructor(address _weth, address _oracle) {
         // We deploy our instance of the token at the same time we are
         // deploying the manager
-        CUSD= new ClujUSD();
+        CUSD = new ClujUSD();
         weth = ERC20(_weth);
         oracle = IOracle(_oracle);
     }
-
 
     function deposit(uint256 _amount) external {
         weth.transferFrom(msg.sender, address(this), _amount);
@@ -81,13 +80,19 @@ contract Manager {
 
     function mint(uint256 _amount) external {
         mintedAmountOf[msg.sender] += _amount;
-        require(collatRatio(msg.sender) >= MIN_COLLAT_RATIO, "Collateral ratio is too low");
+        require(
+            collatRatio(msg.sender) >= MIN_COLLAT_RATIO,
+            "Collateral ratio is too low"
+        );
         CUSD.mint(msg.sender, _amount);
     }
 
-    function withdraw(uint256 _amount) external  {
+    function withdraw(uint256 _amount) external {
         depositAmountOf[msg.sender] -= _amount;
-        require(collatRatio(msg.sender) >= MIN_COLLAT_RATIO, "Collateral ratio is too low");
+        require(
+            collatRatio(msg.sender) >= MIN_COLLAT_RATIO,
+            "Collateral ratio is too low"
+        );
         weth.transfer(msg.sender, _amount);
     }
 
@@ -102,7 +107,7 @@ contract Manager {
     function collatRatio(address _user) public view returns (uint256 _res) {
         uint256 minted = mintedAmountOf[_user];
         if (minted == 0) return type(uint256).max;
-        // Function calls the oracle to get the current price of weth, using the 
+        // Function calls the oracle to get the current price of weth, using the
         // oracle.latestAnswer() function
         uint256 totalValue = (depositAmountOf[_user] *
             (oracle.latestAnswer() * 1e10)) / 1e18;
@@ -144,21 +149,23 @@ contract TokenVault {
     }
 
     function withdrawTokens(uint256 _shares) external {
-        uint256 amount = (_shares * token.balanceOf(address(this))) / totalShares;
+        uint256 amount = (_shares * token.balanceOf(address(this))) /
+            totalShares;
         burnShares(msg.sender, _shares);
         token.transfer(msg.sender, amount);
     }
 
-    function flashLoan(address _borrower, uint256 _amount, bytes calldata _data) external {
-        uint256 balanceBefore = token.balanceOf(address(this));
-        require(balanceBefore >= _amount, "not enough liquidity");
-        require(token.transfer(_borrower, _amount), "transfer failed");
-
-        FlashBorrower(_borrower).onFlashLoan(_amount, _data);
-
-        uint256 balanceAfter = token.balanceOf(address(this));
-        require(balanceAfter >= balanceBefore, "loan not repaid");
-    }
+    // Now we added a flashloan function to this contract
+    // Assignment: Implement the flashloan function
+    // 1. Check if the pool has enough liquidity
+    // 2. Transfer the amount to the borrower
+    // 3. Call the onFlashLoan function of the borrower
+    // 4. Check if the loan is repaid
+    function flashLoan(
+        address _borrower,
+        uint256 _amount,
+        bytes calldata _data
+    ) external {}
 }
 
 contract FlashBorrower {
@@ -166,13 +173,21 @@ contract FlashBorrower {
     DEX public dex;
     Manager public manager;
 
-    constructor (ERC20 _token) {
+    constructor(ERC20 _token) {
         token = _token;
     }
 
     function onFlashLoan(uint256 _amount, bytes calldata _data) external {
-        // do whatever you want here:
-        // arbitrage, liquidation, swap, etc.
+        uint256 amountIn = abi.decode(_data, (uint256));
+        // This is where the flash loan logic will take place
+        // ASSIGNMENT:
+        // Implement your own flashloan logic
+        // It should:
+        // 1. Swap ClujUSD for WETH in the dex
+        // 2. Deposit the WETH in the manager
+        // 3. Mint new ClujUSD
+        //
+        // The repayment we already have
 
         ERC20(token).transfer(msg.sender, _amount);
     }
@@ -204,7 +219,7 @@ contract DEX {
     // Add liquidity to the pool
     function addLiquidity(uint256 _amount1, uint256 _amount2) external {
         require(_amount1 > 0 && _amount2 > 0, "Amounts must be greater than 0");
-        
+
         // This is how we use the interface, and interact with the erc20 functions
         // Note address(this) is solidity for: "Give me the address of this contract"
         token1.transferFrom(msg.sender, address(this), _amount1);
@@ -269,41 +284,35 @@ contract DEX {
     // Swap token1 for token2
     function swapToken1ForToken2(uint256 _amountIn) external {
         require(_amountIn > 0, "Amount must be greater than 0");
-        
+
         // Calculate amount out using constant product formula
         uint256 amountOut = (_amountIn * reserve2) / (reserve1 + _amountIn);
         require(amountOut > 0, "Insufficient output amount");
 
-        // ASSIGNMENT: 
-        // 1. send the _amountIn of token1 from our users wallet to this contract
-        // 2. then send amountOut of token2 to the users wallet
         token1.transferFrom(msg.sender, address(this), _amountIn);
+        token2.transfer(msg.sender, amountOut);
 
-        // ASSIGNMENT:
-        // 1. increment the reserve1 by _amountIn
-        // 2. decrement the reserve2 by amountOut
+        reserve1 += _amountIn;
+        reserve2 -= amountOut;
 
-        // ASSIGNMENT: Use our event for swaps and emit it here
-
+        emit Swap(msg.sender, _amountIn, amountOut);
     }
 
     // Swap token2 for token1
     function swapToken2ForToken1(uint256 _amountIn) external {
         require(_amountIn > 0, "Amount must be greater than 0");
-        
+
         // Calculate amount out using constant product formula
         uint256 amountOut = (_amountIn * reserve1) / (reserve2 + _amountIn);
         require(amountOut > 0, "Insufficient output amount");
 
-        // ASSIGNMENT:
-        // 1. send the _amountIn of token2 from our users wallet to this contract
-        // 2. then send amountOut of token1 to the users wallet
+        token2.transferFrom(msg.sender, address(this), _amountIn);
+        token1.transfer(msg.sender, amountOut);
 
-        // ASSIGNMENT:
-        // 1. increment the reserve2 by _amountIn
-        // 2. decrement the reserve1 by amountOut
+        reserve2 += _amountIn;
+        reserve1 -= amountOut;
 
-        // ASSIGNMENT: Use our event for swaps and emit it here
+        emit Swap(msg.sender, _amountIn, amountOut);
     }
 
     // Helper functions
@@ -320,7 +329,10 @@ contract DEX {
         }
     }
 
-    function min(uint256 _value1, uint256 _value2) private pure returns (uint256 _res) {
+    function min(
+        uint256 _value1,
+        uint256 _value2
+    ) private pure returns (uint256 _res) {
         _res = _value1 < _value2 ? _value1 : _value2;
     }
-} 
+}
