@@ -173,8 +173,10 @@ contract FlashBorrower {
     DEX public dex;
     Manager public manager;
 
-    constructor(ERC20 _token) {
+    constructor(ERC20 _token, DEX _dex, Manager _manager) {
         token = _token;
+        dex = _dex;
+        manager = _manager;
     }
 
     function onFlashLoan(uint256 _amount, bytes calldata _data) external {

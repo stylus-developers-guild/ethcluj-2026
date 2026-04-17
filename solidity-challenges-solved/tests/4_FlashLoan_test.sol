@@ -2,33 +2,45 @@
 pragma solidity 0.8.34;
 
 import "remix_tests.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../4_FlashLoan.sol";
 
-// A well-behaved borrower: records the callback and repays immediately
+contract MockWETH is ERC20 {
+    constructor() ERC20("Wrapped Ether", "WETH") {}
+    function mint(address _to, uint256 _amount) external { _mint(_to, _amount); }
+}
+
+// Returns $2000 per ETH with 8 decimals (Chainlink format)
+contract MockOracle {
+    function latestAnswer() external pure returns (uint256) {
+        return 2000e8;
+    }
+}
+
+// A well-behaved borrower: records that the callback fired and repays immediately.
+// Used to verify the vault's flash-loan *mechanics* independently of any strategy.
 contract HonestBorrower {
     ClujUSD public token;
-    bool public wasCalled;
+    bool    public wasCalled;
     uint256 public receivedAmount;
 
-    constructor(ClujUSD _token) {
-        token = _token;
-    }
+    constructor(ClujUSD _token) { token = _token; }
 
     function onFlashLoan(uint256 _amount, bytes calldata) external {
         wasCalled      = true;
         receivedAmount = token.balanceOf(address(this));
-        // Repay the vault
         token.transfer(msg.sender, _amount);
     }
 }
 
-// A dishonest borrower: never repays
+// A dishonest borrower that never repays — the vault must revert.
 contract DishonestBorrower {
-    function onFlashLoan(uint256, bytes calldata) external pure {
-        // does nothing — loan is not repaid
-    }
+    function onFlashLoan(uint256, bytes calldata) external pure {}
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Test suite 1 — TokenVault flash-loan mechanics (isolated from any strategy)
+// ─────────────────────────────────────────────────────────────────────────────
 contract FlashLoanTest {
     ClujUSD        cusd;
     TokenVault     vault;
@@ -38,17 +50,15 @@ contract FlashLoanTest {
     uint256 constant LOAN_AMOUNT     = 50e18;
 
     function beforeEach() public {
-        // Deploy a standalone ClujUSD where THIS contract is the manager
+        // Deploy a standalone ClujUSD where THIS contract is the manager,
+        // so we can mint directly to seed the vault without going through Manager.
         cusd  = new ClujUSD();
         vault = new TokenVault(address(cusd));
 
-        // Seed the vault with liquidity by minting directly to it
         cusd.mint(address(vault), VAULT_LIQUIDITY);
 
         honest = new HonestBorrower(cusd);
     }
-
-    // --- flash loan is executed ---
 
     function testFlashLoanCallsOnFlashLoan() public {
         vault.flashLoan(address(honest), LOAN_AMOUNT, "");
@@ -69,8 +79,6 @@ contract FlashLoanTest {
         );
     }
 
-    // --- vault is whole after repayment ---
-
     function testVaultBalanceRestoredAfterRepayment() public {
         vault.flashLoan(address(honest), LOAN_AMOUNT, "");
 
@@ -80,8 +88,6 @@ contract FlashLoanTest {
             "vault balance must be fully restored after repayment"
         );
     }
-
-    // --- reverts when loan is not repaid ---
 
     function testFlashLoanRevertsWhenNotRepaid() public {
         DishonestBorrower bad = new DishonestBorrower();
@@ -96,8 +102,6 @@ contract FlashLoanTest {
         Assert.ok(reverted, "flashLoan must revert when the loan is not repaid");
     }
 
-    // --- reverts when pool has insufficient liquidity ---
-
     function testFlashLoanRevertsOnInsufficientLiquidity() public {
         bool reverted;
 
@@ -108,5 +112,143 @@ contract FlashLoanTest {
         }
 
         Assert.ok(reverted, "flashLoan must revert when amount exceeds pool liquidity");
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test suite 2 — Real FlashBorrower arbitrage through a full DeFi environment
+//
+// Environment layout
+// ──────────────────
+//  MockOracle  : $2 000 / ETH (Chainlink 8-decimal format)
+//  Manager     : WETH collateral → ClujUSD (CUSD) mint/burn
+//  DEX pool    : 1 000 CUSD  +  1 WETH
+//                (WETH priced at 1 000 CUSD in the pool vs 2 000 at the oracle
+//                 → price discrepancy that makes the flash-loan arbitrage viable)
+//  TokenVault  : 500 CUSD seeded via depositTokens() — the proper LP path
+//  FlashBorrower: borrow CUSD → swap for WETH → deposit as collateral →
+//                 mint new CUSD → repay vault
+//
+// Math check (50 CUSD loan, amountIn = 50 CUSD swapped):
+//   WETH out  = 50 * 1 / (1000 + 50)  ≈ 0.04762 WETH
+//   collat $  = 0.04762 * $2000       ≈ $95.24
+//   collatRatio = $95.24 / 50 CUSD   ≈ 1.905  ≥ 1.5 ✓
+// ─────────────────────────────────────────────────────────────────────────────
+contract FlashBorrowerTest {
+    MockWETH      weth;
+    Manager       manager;
+    DEX           dex;
+    TokenVault    vault;
+    FlashBorrower flashBorrower;
+
+    // DEX pool: WETH is "cheap" relative to oracle → arbitrage is profitable
+    uint256 constant DEX_CUSD     = 1_000e18;
+    uint256 constant DEX_WETH     = 1e18;
+
+    // Vault seeded via depositTokens (the correct LP path, not direct mint)
+    uint256 constant VAULT_CUSD   = 500e18;
+
+    // Flash loan parameters
+    uint256 constant LOAN_AMOUNT  = 50e18;  // 50 CUSD borrowed from vault
+
+    function beforeEach() public {
+        // ── 1. Infrastructure ───────────────────────────────────────────────
+        weth    = new MockWETH();
+        manager = new Manager(address(weth), address(new MockOracle()));
+
+        // ── 2. Mint WETH and obtain CUSD through the Manager ─────────────────
+        // We need DEX_CUSD + VAULT_CUSD = 1500 CUSD total.
+        // collatRatio = (depositWETH * $2000) / 1500 CUSD >= 1.5
+        //   → depositWETH >= 1.125 WETH  →  use 2 WETH for a safe buffer
+        weth.mint(address(this), 10e18);
+        weth.approve(address(manager), 2e18);
+        manager.deposit(2e18);
+        manager.mint(DEX_CUSD + VAULT_CUSD);   // mint 1500 CUSD
+
+        // ── 3. Create DEX and seed it with CUSD + WETH ───────────────────────
+        // token1 = CUSD, token2 = WETH (matches FlashBorrower.swapToken1ForToken2)
+        dex = new DEX(address(manager.CUSD()), address(weth));
+
+        manager.CUSD().approve(address(dex), DEX_CUSD);
+        weth.approve(address(dex), DEX_WETH);
+        dex.addLiquidity(DEX_CUSD, DEX_WETH);
+
+        // ── 4. Create vault and seed it with CUSD via depositTokens ──────────
+        vault = new TokenVault(address(manager.CUSD()));
+
+        manager.CUSD().approve(address(vault), VAULT_CUSD);
+        vault.depositTokens(VAULT_CUSD);
+
+        // ── 5. Deploy the real FlashBorrower ─────────────────────────────────
+        flashBorrower = new FlashBorrower(
+            ERC20(address(manager.CUSD())),
+            dex,
+            manager
+        );
+    }
+
+    // After a full flash loan the vault must end up with exactly as many CUSD
+    // as it started with (the vault is whole — borrower repaid).
+    function testRealFlashLoanRestoresVaultBalance() public {
+        uint256 vaultBalanceBefore = manager.CUSD().balanceOf(address(vault));
+
+        // _data encodes how much CUSD the FlashBorrower should swap for WETH
+        vault.flashLoan(
+            address(flashBorrower),
+            LOAN_AMOUNT,
+            abi.encode(LOAN_AMOUNT)
+        );
+
+        Assert.equal(
+            manager.CUSD().balanceOf(address(vault)),
+            vaultBalanceBefore,
+            "vault CUSD balance must be fully restored after the real flash loan"
+        );
+    }
+
+    // The FlashBorrower should have deposited WETH collateral into the Manager.
+    function testRealFlashLoanDepositsWethInManager() public {
+        vault.flashLoan(
+            address(flashBorrower),
+            LOAN_AMOUNT,
+            abi.encode(LOAN_AMOUNT)
+        );
+
+        Assert.greaterThan(
+            manager.depositAmountOf(address(flashBorrower)),
+            uint256(0),
+            "FlashBorrower must have WETH deposited in the Manager after the flash loan"
+        );
+    }
+
+    // The FlashBorrower must have a minted CUSD position equal to the loan amount.
+    function testRealFlashLoanCreatesMintedPosition() public {
+        vault.flashLoan(
+            address(flashBorrower),
+            LOAN_AMOUNT,
+            abi.encode(LOAN_AMOUNT)
+        );
+
+        Assert.equal(
+            manager.mintedAmountOf(address(flashBorrower)),
+            LOAN_AMOUNT,
+            "FlashBorrower must have minted exactly LOAN_AMOUNT CUSD via the Manager"
+        );
+    }
+
+    // The collateral ratio for the FlashBorrower must stay above the minimum —
+    // this proves the position is healthy and not immediately liquidatable.
+    function testRealFlashLoanCollateralRatioIsSafe() public {
+        vault.flashLoan(
+            address(flashBorrower),
+            LOAN_AMOUNT,
+            abi.encode(LOAN_AMOUNT)
+        );
+
+        Assert.greaterThan(
+            manager.collatRatio(address(flashBorrower)),
+            manager.MIN_COLLAT_RATIO(),
+            "FlashBorrower collateral ratio must exceed the minimum after the flash loan"
+        );
     }
 }
