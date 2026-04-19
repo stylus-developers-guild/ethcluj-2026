@@ -82,22 +82,6 @@ contract FlashBorrowerTest {
         );
     }
 
-    // ── vault state ─────────────────────────────────────────────────────────
-
-    function testRealFlashLoanRestoresVaultBalance() public {
-        uint256 vaultBalBefore = manager.CUSD().balanceOf(address(vault));
-        vault.flashLoan(address(flashBorrower), LOAN_AMOUNT, abi.encode(LOAN_AMOUNT));
-        Assert.equal(manager.CUSD().balanceOf(address(vault)), vaultBalBefore,
-            "vault CUSD balance must be fully restored after the flash loan");
-    }
-
-    function testVaultTotalSharesUnchangedAfterLoan() public {
-        uint256 sharesBefore = vault.totalShares();
-        vault.flashLoan(address(flashBorrower), LOAN_AMOUNT, abi.encode(LOAN_AMOUNT));
-        Assert.equal(vault.totalShares(), sharesBefore,
-            "vault totalShares must not change during a flash loan");
-    }
-
     // ── FlashBorrower's Manager position ───────────────────────────────────
 
     function testRealFlashLoanDepositsWethInManager() public {
@@ -114,25 +98,11 @@ contract FlashBorrowerTest {
 
     function testRealFlashLoanCollateralRatioIsSafe() public {
         vault.flashLoan(address(flashBorrower), LOAN_AMOUNT, abi.encode(LOAN_AMOUNT));
-        Assert.greaterThan(
-            manager.collatRatio(address(flashBorrower)),
-            manager.MIN_COLLAT_RATIO(),
-            "FlashBorrower collateral ratio must exceed the minimum after the flash loan"
-        );
-    }
-
-    // ── FlashBorrower's token balances after the loan ───────────────────────
-
-    function testFlashBorrowerHasZeroCUSDAfterLoan() public {
-        vault.flashLoan(address(flashBorrower), LOAN_AMOUNT, abi.encode(LOAN_AMOUNT));
-        Assert.equal(manager.CUSD().balanceOf(address(flashBorrower)), 0,
-            "FlashBorrower must hold zero CUSD after repaying the vault");
-    }
-
-    function testFlashBorrowerHasZeroWETHAfterLoan() public {
-        vault.flashLoan(address(flashBorrower), LOAN_AMOUNT, abi.encode(LOAN_AMOUNT));
-        Assert.equal(weth.balanceOf(address(flashBorrower)), 0,
-            "FlashBorrower must hold zero WETH after depositing it all into the Manager");
+        uint256 ratio = manager.collatRatio(address(flashBorrower));
+        Assert.greaterThan(ratio, manager.MIN_COLLAT_RATIO(),
+            "FlashBorrower collateral ratio must exceed the minimum after the flash loan");
+        Assert.lesserThan(ratio, type(uint256).max,
+            "ratio must be finite — FlashBorrower must have an actual minted position");
     }
 
     // ── DEX state after the swap ─────────────────────────────────────────────

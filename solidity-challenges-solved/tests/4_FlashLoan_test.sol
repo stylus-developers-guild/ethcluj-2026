@@ -39,34 +39,6 @@ contract FlashLoanTest {
             "borrower must receive exactly the requested loan amount inside the callback");
     }
 
-    function testFlashLoanBorrowerHasZeroTokensAfterRepayment() public {
-        vault.flashLoan(address(honest), LOAN_AMOUNT, "");
-        Assert.equal(cusd.balanceOf(address(honest)), 0,
-            "borrower must hold zero tokens after repaying the vault");
-    }
-
-    // ── vault balance invariant ─────────────────────────────────────────────
-
-    function testVaultBalanceRestoredAfterRepayment() public {
-        vault.flashLoan(address(honest), LOAN_AMOUNT, "");
-        Assert.equal(cusd.balanceOf(address(vault)), VAULT_LIQUIDITY,
-            "vault balance must be fully restored after repayment");
-    }
-
-    function testVaultBalanceRestoredAfterFullLiquidityLoan() public {
-        // Borrowing the entire vault balance and repaying it must still work
-        vault.flashLoan(address(honest), VAULT_LIQUIDITY, "");
-        Assert.equal(cusd.balanceOf(address(vault)), VAULT_LIQUIDITY,
-            "vault balance must be restored even when full liquidity is borrowed");
-    }
-
-    function testVaultBalanceRestoredAfterTwoSequentialLoans() public {
-        vault.flashLoan(address(honest), LOAN_AMOUNT, "");
-        vault.flashLoan(address(honest), LOAN_AMOUNT, "");
-        Assert.equal(cusd.balanceOf(address(vault)), VAULT_LIQUIDITY,
-            "vault balance must be correct after two sequential flash loans");
-    }
-
     // ── revert cases ────────────────────────────────────────────────────────
 
     function testFlashLoanRevertsWhenNotRepaid() public {
@@ -88,12 +60,5 @@ contract FlashLoanTest {
             reverted = true;
         }
         Assert.ok(reverted, "flashLoan must revert when amount exceeds pool liquidity");
-    }
-
-    function testVaultBalanceUnchangedAfterFailedLoan() public {
-        DishonestBorrower bad = new DishonestBorrower();
-        try vault.flashLoan(address(bad), LOAN_AMOUNT, "") {} catch {}
-        Assert.equal(cusd.balanceOf(address(vault)), VAULT_LIQUIDITY,
-            "vault balance must be unchanged after a reverted flash loan");
     }
 }

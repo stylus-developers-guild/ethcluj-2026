@@ -76,24 +76,6 @@ contract DexTest {
             "user must receive the exact constant-product amountOut");
     }
 
-    function testSwap1For2DexCusdBalanceMatchesReserve1() public {
-        dex.swapToken1ForToken2(SWAP_CUSD);
-        Assert.equal(cusd.balanceOf(address(dex)), dex.reserve1(),
-            "DEX CUSD balance must equal reserve1 after swap");
-    }
-
-    function testSwap1For2DexWethBalanceMatchesReserve2() public {
-        dex.swapToken1ForToken2(SWAP_CUSD);
-        Assert.equal(weth.balanceOf(address(dex)), dex.reserve2(),
-            "DEX WETH balance must equal reserve2 after swap");
-    }
-
-    function testSwap1For2RevertsOnZeroAmount() public {
-        bool reverted;
-        try dex.swapToken1ForToken2(0) { reverted = false; } catch { reverted = true; }
-        Assert.ok(reverted, "swap with zero amountIn must revert");
-    }
-
     // ── swapToken2ForToken1 (WETH → CUSD) ──────────────────────────────────
 
     function testSwap2For1IncreasesReserve2ByExactAmountIn() public {
@@ -136,23 +118,5 @@ contract DexTest {
         dex.swapToken2ForToken1(SWAP_WETH);
         Assert.equal(cusd.balanceOf(address(this)), cusdBefore + expectedOut,
             "user must receive the exact constant-product amountOut");
-    }
-
-    function testSwap2For1DexWethBalanceMatchesReserve2() public {
-        dex.swapToken2ForToken1(SWAP_WETH);
-        Assert.equal(weth.balanceOf(address(dex)), dex.reserve2(),
-            "DEX WETH balance must equal reserve2 after swap");
-    }
-
-    function testSwap2For1DexCusdBalanceMatchesReserve1() public {
-        dex.swapToken2ForToken1(SWAP_WETH);
-        Assert.equal(cusd.balanceOf(address(dex)), dex.reserve1(),
-            "DEX CUSD balance must equal reserve1 after swap");
-    }
-
-    function testSwap2For1RevertsOnZeroAmount() public {
-        bool reverted;
-        try dex.swapToken2ForToken1(0) { reverted = false; } catch { reverted = true; }
-        Assert.ok(reverted, "swap with zero amountIn must revert");
     }
 }

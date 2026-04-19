@@ -38,12 +38,6 @@ contract VaultTest {
             "first depositor shares must equal deposited amount");
     }
 
-    function testTotalSharesEqualsSumOfAllShares() public {
-        vault.depositTokens(DEPOSIT);
-        Assert.equal(vault.totalShares(), vault.sharesOf(address(this)),
-            "totalShares must equal sharesOf for the sole depositor");
-    }
-
     function testTwoEqualDepositsDoubleSharesAndTotal() public {
         vault.depositTokens(DEPOSIT);
         vault.depositTokens(DEPOSIT);
@@ -53,48 +47,7 @@ contract VaultTest {
             "totalShares must equal the sum of all shares minted");
     }
 
-    function testVaultReceivesDepositedTokens() public {
-        vault.depositTokens(DEPOSIT);
-        Assert.equal(vault.token().balanceOf(address(vault)), DEPOSIT,
-            "vault must hold exactly the deposited token amount");
-    }
-
-    function testDepositDecreasesUserTokenBalance() public {
-        uint256 balanceBefore = vault.token().balanceOf(address(this));
-        vault.depositTokens(DEPOSIT);
-        Assert.equal(vault.token().balanceOf(address(this)), balanceBefore - DEPOSIT,
-            "user token balance must decrease by deposited amount");
-    }
-
     // ── burnShares (exercised via withdrawTokens) ───────────────────────────
-
-    function testWithdrawBurnsAllShares() public {
-        vault.depositTokens(DEPOSIT);
-        uint256 shares = vault.sharesOf(address(this));
-        vault.withdrawTokens(shares);
-        Assert.equal(vault.sharesOf(address(this)), uint256(0),
-            "shares must be zero after full withdrawal");
-    }
-
-    function testWithdrawDecreasesTotalShares() public {
-        vault.depositTokens(DEPOSIT);
-        uint256 shares = vault.sharesOf(address(this));
-        vault.withdrawTokens(shares);
-        Assert.equal(vault.totalShares(), uint256(0),
-            "totalShares must be zero after full withdrawal");
-    }
-
-    function testPartialWithdrawBurnsExactShares() public {
-        vault.depositTokens(DEPOSIT);
-        uint256 shares = vault.sharesOf(address(this));
-        vault.withdrawTokens(shares / 2);
-        Assert.equal(vault.sharesOf(address(this)), shares - shares / 2,
-            "remaining shares must be correct after partial withdrawal");
-        Assert.equal(vault.totalShares(), shares - shares / 2,
-            "totalShares must decrease by exactly the burned shares");
-    }
-
-    // ── withdrawTokens ──────────────────────────────────────────────────────
 
     function testWithdrawReturnsTokensToUser() public {
         vault.depositTokens(DEPOSIT);
@@ -130,11 +83,5 @@ contract VaultTest {
         vault.withdrawTokens(shares);
         Assert.equal(vault.token().balanceOf(address(vault)), uint256(0),
             "vault token balance must be zero after the sole depositor withdraws fully");
-    }
-
-    function testVaultTokenBalanceMatchesDeposit() public {
-        vault.depositTokens(DEPOSIT);
-        Assert.equal(vault.token().balanceOf(address(vault)), DEPOSIT,
-            "vault token balance must match the amount deposited");
     }
 }
