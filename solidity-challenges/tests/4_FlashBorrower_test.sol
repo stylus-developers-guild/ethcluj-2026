@@ -102,7 +102,7 @@ contract FlashBorrowerTest {
         Assert.greaterThan(ratio, manager.MIN_COLLAT_RATIO(),
             "FlashBorrower collateral ratio must exceed the minimum after the flash loan");
         Assert.lesserThan(ratio, type(uint256).max,
-            "ratio must be finite — FlashBorrower must have an actual minted position");
+            "ratio must be finite - FlashBorrower must have an actual minted position");
     }
 
     // ── DEX state after the swap ─────────────────────────────────────────────
