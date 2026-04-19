@@ -20,7 +20,7 @@ interface IOracle {
 //
 // Feel free to press command + click / ctrl + click when you hover over the
 // "ERC20" text on the line under this one in order to go to that file and inspect it
-contract ClujUSD is ERC20("ClujUSD", "CUSD") {
+contract ClujUSD is ERC20("ClujUSD", "cusd") {
     address public manager;
 
     constructor() {
@@ -53,7 +53,7 @@ contract Manager {
     uint public constant MIN_COLLAT_RATIO = 1.5e18;
 
     ERC20 public weth;
-    ClujUSD public CUSD;
+    ClujUSD public cusd;
 
     IOracle public oracle;
 
@@ -63,7 +63,7 @@ contract Manager {
     constructor(address _weth, address _oracle) {
         // We deploy our instance of the token at the same time we are
         // deploying the manager
-        CUSD= new ClujUSD();
+        cusd= new ClujUSD();
         weth = ERC20(_weth);
         oracle = IOracle(_oracle);
     }
@@ -77,14 +77,14 @@ contract Manager {
     // ASSIGNMENT: implement the burn function
     // It should:
     // 1. Subtract _amount from the users mintedAmountOf
-    // 2. Burn _amount of CUSD from the users wallet
+    // 2. Burn _amount of cusd from the users wallet
     function burn(uint256 _amount) external {}
 
     // ASSIGNMENT: implement the mint function
     // It should:
     // 1. Add _amount to the users mintedAmountOf
     // 2. Check that the users collateral ratio is >= MIN_COLLAT_RATIO
-    // 3. Mint _amount of CUSD to the user
+    // 3. Mint _amount of cusd to the user
     function mint(uint256 _amount) external {}
 
     // ASSIGNMENT: implement the withdraw function
@@ -96,7 +96,7 @@ contract Manager {
 
     function liquidate(address _user) external {
         require(collatRatio(_user) < MIN_COLLAT_RATIO);
-        CUSD.burn(msg.sender, mintedAmountOf[_user]);
+        cusd.burn(msg.sender, mintedAmountOf[_user]);
         weth.transfer(msg.sender, depositAmountOf[_user]);
         depositAmountOf[_user] = 0;
         mintedAmountOf[_user] = 0;
@@ -105,8 +105,22 @@ contract Manager {
     function collatRatio(address _user) public view returns (uint256 _res) {
         uint256 minted = mintedAmountOf[_user];
         if (minted == 0) return type(uint256).max;
-        // Function calls the oracle to get the current price of weth, using the 
-        // oracle.latestAnswer() function
+        // Function calls the oracle to get the current price of WETH
+        // using oracle.latestAnswer()
+        //
+        // Note: In Solidity >=0.8.0, all arithmetic operations include
+        // built-in overflow and underflow checks.
+        // This means if something like:
+        // - subtraction goes below 0 (underflow)
+        // - multiplication/division exceeds uint256 limits (overflow)
+        // the transaction will automatically REVERT.
+        //
+        // This is different from many languages (e.g. Rust in release mode or C),
+        // where values can silently wrap around on overflow/underflow.
+        //
+        // So if the oracle returns an unexpected value, or if any intermediate
+        // calculation becomes invalid, this computation will fail safely
+        // instead of producing a corrupted number.
         uint256 totalValue = (depositAmountOf[_user] *
             (oracle.latestAnswer() * 1e10)) / 1e18;
         _res = (totalValue * 1e18) / minted;

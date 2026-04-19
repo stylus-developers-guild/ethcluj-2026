@@ -53,7 +53,7 @@ contract Manager {
     uint public constant MIN_COLLAT_RATIO = 1.5e18;
 
     ERC20 public weth;
-    ClujUSD public CUSD;
+    ClujUSD public cusd;
 
     IOracle public oracle;
 
@@ -63,7 +63,7 @@ contract Manager {
     constructor(address _weth, address _oracle) {
         // We deploy our instance of the token at the same time we are
         // deploying the manager
-        CUSD = new ClujUSD();
+        cusd = new ClujUSD();
         weth = ERC20(_weth);
         oracle = IOracle(_oracle);
     }
@@ -75,7 +75,7 @@ contract Manager {
 
     function burn(uint256 _amount) external {
         mintedAmountOf[msg.sender] -= _amount;
-        CUSD.burn(msg.sender, _amount);
+        cusd.burn(msg.sender, _amount);
     }
 
     function mint(uint256 _amount) external {
@@ -84,7 +84,7 @@ contract Manager {
             collatRatio(msg.sender) >= MIN_COLLAT_RATIO,
             "Collateral ratio is too low"
         );
-        CUSD.mint(msg.sender, _amount);
+        cusd.mint(msg.sender, _amount);
     }
 
     function withdraw(uint256 _amount) external {
@@ -98,7 +98,7 @@ contract Manager {
 
     function liquidate(address _user) external {
         require(collatRatio(_user) < MIN_COLLAT_RATIO);
-        CUSD.burn(msg.sender, mintedAmountOf[_user]);
+        cusd.burn(msg.sender, mintedAmountOf[_user]);
         weth.transfer(msg.sender, depositAmountOf[_user]);
         depositAmountOf[_user] = 0;
         mintedAmountOf[_user] = 0;

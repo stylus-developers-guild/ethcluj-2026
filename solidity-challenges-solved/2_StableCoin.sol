@@ -20,7 +20,7 @@ interface IOracle {
 //
 // Feel free to press command + click / ctrl + click when you hover over the
 // "ERC20" text on the line under this one in order to go to that file and inspect it
-contract ClujUSD is ERC20("ClujUSD", "CUSD") {
+contract ClujUSD is ERC20("ClujUSD", "cusd") {
     address public manager;
 
     constructor() {
@@ -53,7 +53,7 @@ contract Manager {
     uint public constant MIN_COLLAT_RATIO = 1.5e18;
 
     ERC20 public weth;
-    ClujUSD public CUSD;
+    ClujUSD public cusd;
 
     IOracle public oracle;
 
@@ -63,7 +63,7 @@ contract Manager {
     constructor(address _weth, address _oracle) {
         // We deploy our instance of the token at the same time we are
         // deploying the manager
-        CUSD= new ClujUSD();
+        cusd= new ClujUSD();
         weth = ERC20(_weth);
         oracle = IOracle(_oracle);
     }
@@ -80,24 +80,24 @@ contract Manager {
     // ASSIGNMENT: implement the burn function
     // It should:
     // 1. Subtract _amount from the users mintedAmountOf
-    // 2. Burn _amount of CUSD from the users wallet
+    // 2. Burn _amount of cusd from the users wallet
     function burn(uint256 _amount) external {
         mintedAmountOf[msg.sender] -= _amount;
-        CUSD.burn(msg.sender, _amount);
+        cusd.burn(msg.sender, _amount);
     }
 
     // ASSIGNMENT: implement the mint function
     // It should:
     // 1. Add _amount to the users mintedAmountOf
     // 2. Check that the users collateral ratio is >= MIN_COLLAT_RATIO
-    // 3. Mint _amount of CUSD to the user
+    // 3. Mint _amount of cusd to the user
     function mint(uint256 _amount) external {
         mintedAmountOf[msg.sender] += _amount;
         require(
             collatRatio(msg.sender) >= MIN_COLLAT_RATIO,
             "Collateral ratio is too low"
         );
-        CUSD.mint(msg.sender, _amount);
+        cusd.mint(msg.sender, _amount);
     }
 
     // ASSIGNMENT: implement the withdraw function
@@ -116,7 +116,7 @@ contract Manager {
 
     function liquidate(address _user) external {
         require(collatRatio(_user) < MIN_COLLAT_RATIO);
-        CUSD.burn(msg.sender, mintedAmountOf[_user]);
+        cusd.burn(msg.sender, mintedAmountOf[_user]);
         weth.transfer(msg.sender, depositAmountOf[_user]);
         depositAmountOf[_user] = 0;
         mintedAmountOf[_user] = 0;

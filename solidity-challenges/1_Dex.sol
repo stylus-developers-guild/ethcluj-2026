@@ -44,6 +44,23 @@ contract DEX {
         
         // This is how we use the interface, and interact with the erc20 functions
         // Note address(this) is solidity for: "Give me the address of this contract"
+        // When we call token1.transferFrom(...), we're not calling code directly.
+        // The compiler turns this into a low-level external call to the token contract.
+        //
+        // Under the hood, it ABI-encodes the function selector + arguments like:
+        // abi.encodeWithSelector(
+        //     bytes4(keccak256("transferFrom(address,address,uint256)")),
+        //     msg.sender,
+        //     address(this),
+        //     _amount1
+        // )
+        //
+        // This encoded data becomes the "calldata" sent in a message call to `token1`.
+        // So this line is effectively:
+        // (bool success, ) = address(token1).call(encodedData);
+        //
+        // The ERC20 contract then executes `transferFrom` using that calldata.
+        token1.transferFrom(msg.sender, address(this), _amount1);
         token1.transferFrom(msg.sender, address(this), _amount1);
         // The transferFrom function is used when we want to move money from a
         // Wallet or contract that is NOT this contract
@@ -58,6 +75,12 @@ contract DEX {
             liquidity = squareroot(_amount1 * _amount2);
         } else {
             liquidity = min(
+                // Due to math constraint in solidity, the following is a simplified version
+                // and would not be suitable for production code. If you want to dig deeper into
+                // math in solidity, I recomend reading these 2 links to get an idea about what
+                // you would put here instead:
+                // https://medium.com/coinmonks/math-in-solidity-part-3-percents-and-proportions-4db014e080b1
+                // https://gist.github.com/paulrberg/439ebe860cd2f9893852e2cab5655b65
                 (_amount1 * totalSupply) / reserve1,
                 (_amount2 * totalSupply) / reserve2
             );
@@ -65,11 +88,25 @@ contract DEX {
 
         // Update reserves and mint liquidity tokens
         // "+=" is syntactic sugar for incrementing values
-        // Think of it as "i want to take the prior value of this variable
+        // Think of it as "I want to take the prior value of this variable
         // and add it with x"
         // This is the same as: reserve1 = reserve1 + _amount1
         // This also works with decrements "-="
         // That would be the same as: reserve1 = reserve1 - _amount1
+        //
+        // Under the hood, these variables live in *storage* (persistent state on-chain).
+        // Each state variable is assigned a storage slot by the compiler
+        // (e.g. reserve1 might be slot 0, reserve2 slot 1, etc).
+        //
+        // When we do `reserve1 += _amount1`, the EVM roughly performs:
+        // 1. Load current value from storage:    SLOAD(slot)
+        // 2. Add the new amount:                ADD
+        // 3. Write back to storage:             SSTORE(slot, newValue)
+        //
+        // For mappings like `balanceOf[msg.sender]`, the storage slot is computed using:
+        // keccak256(abi.encode(key, mappingSlot))
+        //
+        // This ensures every key in the mapping gets a unique storage location.
         reserve1 += _amount1;
         reserve2 += _amount2;
         totalSupply += liquidity;
@@ -144,6 +181,19 @@ contract DEX {
 
     // Helper functions
     function squareroot(uint256 _input) private pure returns (uint256 _res) {
+        // This uses Newton's Method (also called the Babylonian method)
+        // to approximate the square root of a number.
+        //
+        // The idea is to iteratively improve a guess `x` using:
+        // x = (input / x + x) / 2
+        // Each iteration gets closer to the true square root.
+        //
+        // Note: Solidity does NOT have native floating point numbers,
+        // and its standard library is very minimal compared to languages like JS or Python.
+        // That means we can't just call something like `sqrt()` — we have to implement it ourselves.
+        //
+        // This implementation works entirely with integers, so it returns
+        // an approximation (rounded down) of the square root.
         if (_input > 3) {
             _res = _input;
             uint256 x = _input / 2 + 1;
