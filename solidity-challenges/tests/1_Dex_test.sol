@@ -2,25 +2,13 @@
 pragma solidity 0.8.34;
 
 import "remix_tests.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
 import "../1_Dex.sol";
-
-// Represents WETH — minted freely here to simulate a user who holds WETH
-contract MockWETH is ERC20 {
-    constructor() ERC20("Wrapped Ether", "WETH") {}
-    function mint(address _to, uint256 _amount) external { _mint(_to, _amount); }
-}
-
-// Represents ClujUSD — in production this is minted by depositing WETH into the Manager.
-// Here we mint it directly to simulate a user who has already gone through the Manager.
-contract MockCUSD is ERC20 {
-    constructor() ERC20("ClujUSD", "CUSD") {}
-    function mint(address _to, uint256 _amount) external { _mint(_to, _amount); }
-}
+import "solidity-challenges/tests/mock/MockToken.sol";
 
 contract DexTest {
-    MockCUSD cusd;  // token1: stablecoin (would normally be minted from WETH via Manager)
-    MockWETH weth;  // token2: collateral token
+    MockToken cusd; // token1: stablecoin (would normally be minted from WETH via Manager)
+    MockToken weth; // token2: collateral token
     DEX dex;
 
     // Pool seeded at the oracle price: 2000 CUSD per 1 WETH ($2 000 / ETH).
@@ -36,13 +24,9 @@ contract DexTest {
 
     function beforeEach() public {
         // Deploy the two tokens
-        cusd = new MockCUSD();
-        weth = new MockWETH();
-        dex  = new DEX(address(cusd), address(weth));
-
-        // Mint exactly what we need: pool amounts + one swap amount each
-        cusd.mint(address(this), POOL_CUSD + SWAP_CUSD);   // 2010 CUSD
-        weth.mint(address(this), POOL_WETH + SWAP_WETH);   // 1.01 WETH
+        cusd = new MockToken("ClujUSD", "CUSD");
+        weth = new MockToken("Wrapped Ethereum", "WETH");
+        dex = new DEX(address(cusd), address(weth));
 
         cusd.approve(address(dex), POOL_CUSD + SWAP_CUSD);
         weth.approve(address(dex), POOL_WETH + SWAP_WETH);

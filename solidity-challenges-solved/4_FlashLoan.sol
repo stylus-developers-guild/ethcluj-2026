@@ -111,7 +111,7 @@ contract Manager {
         // oracle.latestAnswer() function
         uint256 totalValue = (depositAmountOf[_user] *
             (oracle.latestAnswer() * 1e10)) / 1e18;
-        _res = totalValue / minted;
+        _res = (totalValue * 1e18) / minted;
     }
 }
 

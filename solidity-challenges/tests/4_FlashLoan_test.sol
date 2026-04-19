@@ -2,57 +2,27 @@
 pragma solidity 0.8.34;
 
 import "remix_tests.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../4_FlashLoan.sol";
+import "solidity-challenges/tests/mock/MockOracle.sol";
+import "solidity-challenges/tests/mock/MockToken.sol";
+import "solidity-challenges/tests/mock/MockBorrower.sol";
 
-contract MockWETH is ERC20 {
-    constructor() ERC20("Wrapped Ether", "WETH") {}
-    function mint(address _to, uint256 _amount) external { _mint(_to, _amount); }
-}
-
-// Returns $2000 per ETH with 8 decimals (Chainlink format)
-contract MockOracle {
-    function latestAnswer() external pure returns (uint256) {
-        return 2000e8;
-    }
-}
-
-// A well-behaved borrower: records that the callback fired and repays immediately.
-// Used to verify the vault's flash-loan *mechanics* independently of any strategy.
-contract HonestBorrower {
-    ClujUSD public token;
-    bool    public wasCalled;
-    uint256 public receivedAmount;
-
-    constructor(ClujUSD _token) { token = _token; }
-
-    function onFlashLoan(uint256 _amount, bytes calldata) external {
-        wasCalled      = true;
-        receivedAmount = token.balanceOf(address(this));
-        token.transfer(msg.sender, _amount);
-    }
-}
-
-// A dishonest borrower that never repays — the vault must revert.
-contract DishonestBorrower {
-    function onFlashLoan(uint256, bytes calldata) external pure {}
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Test suite 1 — TokenVault flash-loan mechanics (isolated from any strategy)
 // ─────────────────────────────────────────────────────────────────────────────
 contract FlashLoanTest {
-    ClujUSD        cusd;
-    TokenVault     vault;
+    ClujUSD cusd;
+    TokenVault vault;
     HonestBorrower honest;
 
     uint256 constant VAULT_LIQUIDITY = 100e18;
-    uint256 constant LOAN_AMOUNT     = 50e18;
+    uint256 constant LOAN_AMOUNT = 50e18;
 
     function beforeEach() public {
         // Deploy a standalone ClujUSD where THIS contract is the manager,
         // so we can mint directly to seed the vault without going through Manager.
-        cusd  = new ClujUSD();
+        cusd = new ClujUSD();
         vault = new TokenVault(address(cusd));
 
         cusd.mint(address(vault), VAULT_LIQUIDITY);
@@ -98,8 +68,10 @@ contract FlashLoanTest {
         } catch {
             reverted = true;
         }
-
-        Assert.ok(reverted, "flashLoan must revert when the loan is not repaid");
+        Assert.ok(
+            reverted,
+            "flashLoan must revert when the loan is not repaid"
+        );
     }
 
     function testFlashLoanRevertsOnInsufficientLiquidity() public {
@@ -110,8 +82,10 @@ contract FlashLoanTest {
         } catch {
             reverted = true;
         }
-
-        Assert.ok(reverted, "flashLoan must revert when amount exceeds pool liquidity");
+        Assert.ok(
+            reverted,
+            "flashLoan must revert when amount exceeds pool liquidity"
+        );
     }
 }
 
@@ -133,40 +107,36 @@ contract FlashLoanTest {
 //   WETH out  = 50 * 1 / (1000 + 50)  ≈ 0.04762 WETH
 //   collat $  = 0.04762 * $2000       ≈ $95.24
 //   collatRatio = $95.24 / 50 CUSD   ≈ 1.905  ≥ 1.5 ✓
-//
-// ASSIGNMENT: implement flashLoan() in TokenVault and the full onFlashLoan()
-// logic in FlashBorrower (swap + deposit + mint) to make all tests below pass.
 // ─────────────────────────────────────────────────────────────────────────────
 contract FlashBorrowerTest {
-    MockWETH      weth;
-    Manager       manager;
-    DEX           dex;
-    TokenVault    vault;
+    MockToken weth;
+    Manager manager;
+    DEX dex;
+    TokenVault vault;
     FlashBorrower flashBorrower;
 
     // DEX pool: WETH is "cheap" relative to oracle → arbitrage is profitable
-    uint256 constant DEX_CUSD     = 1_000e18;
-    uint256 constant DEX_WETH     = 1e18;
+    uint256 constant DEX_CUSD = 1_000e18;
+    uint256 constant DEX_WETH = 1e18;
 
     // Vault seeded via depositTokens (the correct LP path, not direct mint)
-    uint256 constant VAULT_CUSD   = 500e18;
+    uint256 constant VAULT_CUSD = 500e18;
 
     // Flash loan parameters
-    uint256 constant LOAN_AMOUNT  = 50e18;  // 50 CUSD borrowed from vault
+    uint256 constant LOAN_AMOUNT = 50e18; // 50 CUSD borrowed from vault
 
     function beforeEach() public {
         // ── 1. Infrastructure ───────────────────────────────────────────────
-        weth    = new MockWETH();
+        weth = new MockToken("Wrapped Ethereum", "Weth");
         manager = new Manager(address(weth), address(new MockOracle()));
 
         // ── 2. Mint WETH and obtain CUSD through the Manager ─────────────────
         // We need DEX_CUSD + VAULT_CUSD = 1500 CUSD total.
         // collatRatio = (depositWETH * $2000) / 1500 CUSD >= 1.5
         //   → depositWETH >= 1.125 WETH  →  use 2 WETH for a safe buffer
-        weth.mint(address(this), 10e18);
         weth.approve(address(manager), 2e18);
         manager.deposit(2e18);
-        manager.mint(DEX_CUSD + VAULT_CUSD);   // mint 1500 CUSD
+        manager.mint(DEX_CUSD + VAULT_CUSD); // mint 1500 CUSD
 
         // ── 3. Create DEX and seed it with CUSD + WETH ───────────────────────
         // token1 = CUSD, token2 = WETH (matches FlashBorrower.swapToken1ForToken2)
@@ -182,9 +152,7 @@ contract FlashBorrowerTest {
         manager.CUSD().approve(address(vault), VAULT_CUSD);
         vault.depositTokens(VAULT_CUSD);
 
-        // ── 5. Deploy the FlashBorrower ───────────────────────────────────────
-        // ASSIGNMENT: update FlashBorrower.constructor to accept DEX and Manager,
-        // then implement the swap → deposit → mint logic inside onFlashLoan().
+        // ── 5. Deploy the real FlashBorrower ─────────────────────────────────
         flashBorrower = new FlashBorrower(
             ERC20(address(manager.CUSD())),
             dex,

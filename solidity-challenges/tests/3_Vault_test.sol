@@ -2,23 +2,15 @@
 pragma solidity 0.8.34;
 
 import "remix_tests.sol";
-import "../3_Vault.sol";
-
-// TokenVault creates its own ClujUSD and is the sole manager.
-// This helper exposes a mint function so tests can seed token balances.
-contract TestableVault is TokenVault {
-    function mintTokensForTest(address _to, uint256 _amount) external {
-        token.mint(_to, _amount);
-    }
-}
+import "solidity-challenges/tests/mock/MockVault.sol";
 
 contract VaultTest {
-    TestableVault vault;
+    MockVault vault;
 
     uint256 constant DEPOSIT = 100e18;
 
     function beforeEach() public {
-        vault = new TestableVault();
+        vault = new MockVault();
 
         // Give this test contract some tokens and approve the vault
         vault.mintTokensForTest(address(this), 200e18);
