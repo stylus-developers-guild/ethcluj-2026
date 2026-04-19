@@ -10,8 +10,8 @@ contract HonestBorrower {
     bool public wasCalled;
     uint256 public receivedAmount;
 
-    constructor(address _token) {
-        token = ERC20(_token);
+    constructor(ERC20 _token) {
+        token = _token;
     }
 
     function onFlashLoan(uint256 _amount, bytes calldata) external {

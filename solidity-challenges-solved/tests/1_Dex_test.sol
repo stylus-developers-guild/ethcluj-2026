@@ -2,28 +2,25 @@
 pragma solidity 0.8.34;
 
 import "remix_tests.sol";
-
 import "../1_Dex.sol";
 import "solidity-challenges-solved/tests/mock/MockToken.sol";
 
+// Students implement: swapToken1ForToken2 and swapToken2ForToken1
+// (token transfers, reserve updates, Swap event)
 contract DexTest {
-    MockToken cusd; // token1: stablecoin (would normally be minted from WETH via Manager)
+    MockToken cusd; // token1: stablecoin
     MockToken weth; // token2: collateral token
     DEX dex;
 
-    // Pool seeded at the oracle price: 2000 CUSD per 1 WETH ($2 000 / ETH).
-    // This reflects the real relationship between CUSD and WETH.
+    // Pool seeded at oracle price: 2000 CUSD per 1 WETH
     uint256 constant POOL_CUSD = 2000e18;
     uint256 constant POOL_WETH = 1e18;
 
-    // Small swap amounts to keep slippage low.
-    // Swapping CUSD in → WETH out: 10 CUSD trades for ~0.00497 WETH
-    // Swapping WETH in → CUSD out: 0.01 WETH trades for ~19.8 CUSD
+    // Swap amounts kept small to limit slippage
     uint256 constant SWAP_CUSD = 10e18;
     uint256 constant SWAP_WETH = 1e16; // 0.01 WETH
 
     function beforeEach() public {
-        // Deploy the two tokens
         cusd = new MockToken("ClujUSD", "CUSD");
         weth = new MockToken("Wrapped Ethereum", "WETH");
         dex = new DEX(address(cusd), address(weth));
@@ -31,107 +28,131 @@ contract DexTest {
         cusd.approve(address(dex), POOL_CUSD + SWAP_CUSD);
         weth.approve(address(dex), POOL_WETH + SWAP_WETH);
 
-        // Seed pool at the oracle price so AMM starts fair
+        // Seed pool at oracle price
         dex.addLiquidity(POOL_CUSD, POOL_WETH);
     }
 
-    // --- swapToken1ForToken2 (CUSD → WETH) ---
+    // ── swapToken1ForToken2 (CUSD → WETH) ──────────────────────────────────
 
-    function testSwap1For2IncreasesReserve1() public {
-        uint256 reserve1Before = dex.reserve1();
-
+    function testSwap1For2IncreasesReserve1ByExactAmountIn() public {
         dex.swapToken1ForToken2(SWAP_CUSD);
-
-        Assert.equal(
-            dex.reserve1(),
-            reserve1Before + SWAP_CUSD,
-            "reserve1 must increase by amountIn"
-        );
+        Assert.equal(dex.reserve1(), POOL_CUSD + SWAP_CUSD,
+            "reserve1 must increase by exactly amountIn");
     }
 
     function testSwap1For2DecreasesReserve2() public {
-        uint256 reserve2Before = dex.reserve2();
-
+        uint256 r2Before = dex.reserve2();
         dex.swapToken1ForToken2(SWAP_CUSD);
-
-        Assert.lesserThan(
-            dex.reserve2(),
-            reserve2Before,
-            "reserve2 must decrease after swap"
-        );
+        Assert.lesserThan(dex.reserve2(), r2Before,
+            "reserve2 must decrease after swap");
     }
 
-    function testSwap1For2TransfersToken2ToUser() public {
-        uint256 balanceBefore = weth.balanceOf(address(this));
-
+    function testSwap1For2SetsReserve2ByConstantProductFormula() public {
+        uint256 expectedOut = SWAP_CUSD * POOL_WETH / (POOL_CUSD + SWAP_CUSD);
         dex.swapToken1ForToken2(SWAP_CUSD);
-
-        Assert.greaterThan(
-            weth.balanceOf(address(this)),
-            balanceBefore,
-            "user must receive WETH"
-        );
+        Assert.equal(dex.reserve2(), POOL_WETH - expectedOut,
+            "reserve2 must decrease by the constant-product amountOut");
     }
 
-    function testSwap1For2TakesToken1FromUser() public {
-        uint256 balanceBefore = cusd.balanceOf(address(this));
-
+    function testSwap1For2TakesExactAmountInFromUser() public {
+        uint256 cusdBefore = cusd.balanceOf(address(this));
         dex.swapToken1ForToken2(SWAP_CUSD);
-
-        Assert.equal(
-            cusd.balanceOf(address(this)),
-            balanceBefore - SWAP_CUSD,
-            "amountIn of CUSD must leave user wallet"
-        );
+        Assert.equal(cusd.balanceOf(address(this)), cusdBefore - SWAP_CUSD,
+            "user must lose exactly amountIn of CUSD");
     }
 
-    // --- swapToken2ForToken1 (WETH → CUSD) ---
+    function testSwap1For2SendsToken2ToUser() public {
+        uint256 wethBefore = weth.balanceOf(address(this));
+        dex.swapToken1ForToken2(SWAP_CUSD);
+        Assert.greaterThan(weth.balanceOf(address(this)), wethBefore,
+            "user must receive WETH after swap");
+    }
 
-    function testSwap2For1IncreasesReserve2() public {
-        uint256 reserve2Before = dex.reserve2();
+    function testSwap1For2SendsExactAmountOutToUser() public {
+        uint256 expectedOut = SWAP_CUSD * POOL_WETH / (POOL_CUSD + SWAP_CUSD);
+        uint256 wethBefore = weth.balanceOf(address(this));
+        dex.swapToken1ForToken2(SWAP_CUSD);
+        Assert.equal(weth.balanceOf(address(this)), wethBefore + expectedOut,
+            "user must receive the exact constant-product amountOut");
+    }
 
+    function testSwap1For2DexCusdBalanceMatchesReserve1() public {
+        dex.swapToken1ForToken2(SWAP_CUSD);
+        Assert.equal(cusd.balanceOf(address(dex)), dex.reserve1(),
+            "DEX CUSD balance must equal reserve1 after swap");
+    }
+
+    function testSwap1For2DexWethBalanceMatchesReserve2() public {
+        dex.swapToken1ForToken2(SWAP_CUSD);
+        Assert.equal(weth.balanceOf(address(dex)), dex.reserve2(),
+            "DEX WETH balance must equal reserve2 after swap");
+    }
+
+    function testSwap1For2RevertsOnZeroAmount() public {
+        bool reverted;
+        try dex.swapToken1ForToken2(0) { reverted = false; } catch { reverted = true; }
+        Assert.ok(reverted, "swap with zero amountIn must revert");
+    }
+
+    // ── swapToken2ForToken1 (WETH → CUSD) ──────────────────────────────────
+
+    function testSwap2For1IncreasesReserve2ByExactAmountIn() public {
         dex.swapToken2ForToken1(SWAP_WETH);
-
-        Assert.equal(
-            dex.reserve2(),
-            reserve2Before + SWAP_WETH,
-            "reserve2 must increase by amountIn"
-        );
+        Assert.equal(dex.reserve2(), POOL_WETH + SWAP_WETH,
+            "reserve2 must increase by exactly amountIn");
     }
 
     function testSwap2For1DecreasesReserve1() public {
-        uint256 reserve1Before = dex.reserve1();
-
+        uint256 r1Before = dex.reserve1();
         dex.swapToken2ForToken1(SWAP_WETH);
-
-        Assert.lesserThan(
-            dex.reserve1(),
-            reserve1Before,
-            "reserve1 must decrease after swap"
-        );
+        Assert.lesserThan(dex.reserve1(), r1Before,
+            "reserve1 must decrease after swap");
     }
 
-    function testSwap2For1TransfersToken1ToUser() public {
-        uint256 balanceBefore = cusd.balanceOf(address(this));
-
+    function testSwap2For1SetsReserve1ByConstantProductFormula() public {
+        uint256 expectedOut = SWAP_WETH * POOL_CUSD / (POOL_WETH + SWAP_WETH);
         dex.swapToken2ForToken1(SWAP_WETH);
-
-        Assert.greaterThan(
-            cusd.balanceOf(address(this)),
-            balanceBefore,
-            "user must receive CUSD"
-        );
+        Assert.equal(dex.reserve1(), POOL_CUSD - expectedOut,
+            "reserve1 must decrease by the constant-product amountOut");
     }
 
-    function testSwap2For1TakesToken2FromUser() public {
-        uint256 balanceBefore = weth.balanceOf(address(this));
-
+    function testSwap2For1TakesExactAmountInFromUser() public {
+        uint256 wethBefore = weth.balanceOf(address(this));
         dex.swapToken2ForToken1(SWAP_WETH);
+        Assert.equal(weth.balanceOf(address(this)), wethBefore - SWAP_WETH,
+            "user must lose exactly amountIn of WETH");
+    }
 
-        Assert.equal(
-            weth.balanceOf(address(this)),
-            balanceBefore - SWAP_WETH,
-            "amountIn of WETH must leave user wallet"
-        );
+    function testSwap2For1SendsToken1ToUser() public {
+        uint256 cusdBefore = cusd.balanceOf(address(this));
+        dex.swapToken2ForToken1(SWAP_WETH);
+        Assert.greaterThan(cusd.balanceOf(address(this)), cusdBefore,
+            "user must receive CUSD after swap");
+    }
+
+    function testSwap2For1SendsExactAmountOutToUser() public {
+        uint256 expectedOut = SWAP_WETH * POOL_CUSD / (POOL_WETH + SWAP_WETH);
+        uint256 cusdBefore = cusd.balanceOf(address(this));
+        dex.swapToken2ForToken1(SWAP_WETH);
+        Assert.equal(cusd.balanceOf(address(this)), cusdBefore + expectedOut,
+            "user must receive the exact constant-product amountOut");
+    }
+
+    function testSwap2For1DexWethBalanceMatchesReserve2() public {
+        dex.swapToken2ForToken1(SWAP_WETH);
+        Assert.equal(weth.balanceOf(address(dex)), dex.reserve2(),
+            "DEX WETH balance must equal reserve2 after swap");
+    }
+
+    function testSwap2For1DexCusdBalanceMatchesReserve1() public {
+        dex.swapToken2ForToken1(SWAP_WETH);
+        Assert.equal(cusd.balanceOf(address(dex)), dex.reserve1(),
+            "DEX CUSD balance must equal reserve1 after swap");
+    }
+
+    function testSwap2For1RevertsOnZeroAmount() public {
+        bool reverted;
+        try dex.swapToken2ForToken1(0) { reverted = false; } catch { reverted = true; }
+        Assert.ok(reverted, "swap with zero amountIn must revert");
     }
 }
