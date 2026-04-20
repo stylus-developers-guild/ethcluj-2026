@@ -21,7 +21,7 @@
 
 	</nav>
 
-	<article>
+	<article id="page-content">
 	<h1 id="your-first-smart-contract-on-arbitrum">Your First Smart Contract on Arbitrum</h1>
 <p>Now it is time to get our hands dirty. All of us are going to develop and deploy our first smart contract. It will be fun!</p>
 <p>Let us all go to <a href="https://remix.live/">https:&#47;&#47;remix.live</a> . We don’t have to download anything at this point, don’t worry. Start by navigating to the editor, then underneath the folder “Contracts”, add a new file called “EthCluj.sol”. Before we can get to coding some real programs, there are a couple of boilerplate things we need to add to our file. Namely:</p>
@@ -263,5 +263,20 @@ contract EthCluj {
 	<footer>
 		<p>made with <a href="https://github.com/uint23/kew">kew</a></p>
 	</footer>
+
+	<aside id="chat-widget" aria-labelledby="chat-heading">
+		<details id="chat-panel" open>
+			<summary id="chat-heading">Ask this page</summary>
+
+			<section id="chat-messages" aria-live="polite" aria-label="Chat messages"></section>
+
+			<form id="chat-form">
+				<label for="chat-input">Question</label>
+				<input id="chat-input" type="text" placeholder="Ask about this page..." autocomplete="off">
+				<button type="submit">Ask</button>
+			</form>
+		</details>
+	</aside>
+	<script src="/chat.js"></script>
 </body>
 </html>

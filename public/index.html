@@ -21,7 +21,7 @@
 
 	</nav>
 
-	<article>
+	<article id="page-content">
 	<h1 id="arbitrum">Arbitrum</h1>
 <ul>
 <li><a href="chapter-1.html">Arbitrum’s role in the Ethereum roadmap</a></li>
@@ -33,5 +33,20 @@
 	<footer>
 		<p>made with <a href="https://github.com/uint23/kew">kew</a></p>
 	</footer>
+
+	<aside id="chat-widget" aria-labelledby="chat-heading">
+		<details id="chat-panel" open>
+			<summary id="chat-heading">Ask this page</summary>
+
+			<section id="chat-messages" aria-live="polite" aria-label="Chat messages"></section>
+
+			<form id="chat-form">
+				<label for="chat-input">Question</label>
+				<input id="chat-input" type="text" placeholder="Ask about this page..." autocomplete="off">
+				<button type="submit">Ask</button>
+			</form>
+		</details>
+	</aside>
+	<script src="/chat.js"></script>
 </body>
 </html>

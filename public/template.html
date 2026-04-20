@@ -17,12 +17,27 @@
 		{{NAV}}
 	</nav>
 
-	<article>
+	<article id="page-content">
 	{{CONTENT}}
 	</article>
 
 	<footer>
 		<p>{{FOOTER}}</p>
 	</footer>
+
+	<aside id="chat-widget" aria-labelledby="chat-heading">
+		<details id="chat-panel" open>
+			<summary id="chat-heading">Ask this page</summary>
+
+			<section id="chat-messages" aria-live="polite" aria-label="Chat messages"></section>
+
+			<form id="chat-form">
+				<label for="chat-input">Question</label>
+				<input id="chat-input" type="text" placeholder="Ask about this page..." autocomplete="off">
+				<button type="submit">Ask</button>
+			</form>
+		</details>
+	</aside>
+	<script src="/chat.js"></script>
 </body>
 </html>
