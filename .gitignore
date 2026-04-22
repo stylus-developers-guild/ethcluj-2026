@@ -8,10 +8,20 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+
+# --- Global ignores ---
+node_modules/
+dist/
+build/
+*.log
+
+# --- Frontend (explicit) ---
+frontend/node_modules/
+frontend/dist/
+
+# IMPORTANT: ensure lockfile is tracked
+!frontend/package-lock.json
+!frontend/package.json
 
 # Editor directories and files
 .vscode/*
