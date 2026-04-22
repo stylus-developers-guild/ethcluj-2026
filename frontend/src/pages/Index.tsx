@@ -13,7 +13,12 @@ export default function Index() {
   return (
     <main>
       <header>
-        <h1>Arbitrum Workshop</h1>
+        <a
+          href="/ethcluj-2026/"
+          className="inline-flex items-center gap-2 hover:opacity-80"
+        >
+          <h1 className="text-4xl font-bold">Arbitrum Workshop</h1>
+        </a>
         <ConnectWallet />
       </header>
       <WethMinting />        <hr />
