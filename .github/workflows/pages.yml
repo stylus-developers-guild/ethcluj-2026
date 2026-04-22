@@ -44,39 +44,33 @@ jobs:
       - name: Patch kew nav links to be relative
         working-directory: kew
         run: |
-          python3 -c '
+          python3 - <<'PY'
           from pathlib import Path
+          import re
           import sys
 
           p = Path("kew.go")
           s = p.read_text()
 
-          old1 = """\t\tp := f.Path
-          \t\tif !strings.HasPrefix(p, "/") {
-          \t\t\tp = "/" + p
-          \t\t}
-          """
-          new1 = """\t\tp := f.Path
-          """
+          file_pat = re.compile(
+              r'p := f\.Path\s+if !strings\.HasPrefix\(p,\s*"/"\)\s*\{\s*p = "/" \+ p\s*\}',
+              re.MULTILINE
+          )
+          dir_pat = re.compile(
+              r'p := c\.Path\s+if !strings\.HasPrefix\(p,\s*"/"\)\s*\{\s*p = "/" \+ p\s*\}',
+              re.MULTILINE
+          )
 
-          old2 = """\t\tp := d.Path
-          \t\tif !strings.HasPrefix(p, "/") {
-          \t\t\tp = "/" + p
-          \t\t}
-          """
-          new2 = """\t\tp := d.Path
-          """
+          s, n1 = file_pat.subn('p := f.Path', s, count=1)
+          s, n2 = dir_pat.subn('p := c.Path', s, count=1)
 
-          if old1 not in s:
-              sys.exit("Did not find file-link nav block to patch")
-          if old2 not in s:
-              sys.exit("Did not find directory-link nav block to patch")
-
-          s = s.replace(old1, new1)
-          s = s.replace(old2, new2)
+          if n1 != 1:
+              sys.exit(f"Expected to patch file-link block once, patched {n1} times")
+          if n2 != 1:
+              sys.exit(f"Expected to patch directory-link block once, patched {n2} times")
 
           p.write_text(s)
-          '
+          PY
 
       - name: Build kew
         working-directory: kew
