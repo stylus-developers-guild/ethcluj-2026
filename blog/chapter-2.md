@@ -297,4 +297,4 @@ contract EthCluj {
 }
 ```
 
-Wow, we definitely learned a lot today. From what we learned now, I have prepared some smart contract challenges.
+Wow, we definitely learned a lot today. From what we learned now, I have prepared some smart contract [challenges](https://github.com/stylus-developers-guild/ethcluj-2026/tree/trunk/solidity-challenges).

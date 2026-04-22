@@ -5,6 +5,9 @@
 	<title>kew example</title>
 
 	<link rel="stylesheet" href="/style.css" type="text/css">
+
+	<!-- Prism theme -->
+	<link href="https://cdn.jsdelivr.net/npm/prismjs/themes/prism-tomorrow.css" rel="stylesheet">
 </head>
 
 <body>
@@ -256,7 +259,7 @@ contract EthCluj {
     }
 }
 </code></pre>
-<p>Wow, we definitely learned a lot today. From what we learned now, I have prepared some smart contract challenges.</p>
+<p>Wow, we definitely learned a lot today. From what we learned now, I have prepared some smart contract <a href="https://github.com/stylus-developers-guild/ethcluj-2026/tree/trunk/solidity-challenges">challenges</a>.</p>
 
 	</article>
 
@@ -265,7 +268,7 @@ contract EthCluj {
 	</footer>
 
 	<aside id="chat-widget" aria-labelledby="chat-heading">
-		<details id="chat-panel" open>
+		<details id="chat-panel">
 			<summary id="chat-heading">Ask this page</summary>
 
 			<section id="chat-messages" aria-live="polite" aria-label="Chat messages"></section>
@@ -277,6 +280,15 @@ contract EthCluj {
 			</form>
 		</details>
 	</aside>
+
+	<!-- Your chat logic -->
 	<script src="/chat.js"></script>
+
+	<!-- Prism core -->
+	<script src="https://cdn.jsdelivr.net/npm/prismjs/prism.js"></script>
+
+	<!-- Solidity language support -->
+	<script src="https://cdn.jsdelivr.net/npm/prismjs/components/prism-solidity.min.js"></script>
+
 </body>
 </html>

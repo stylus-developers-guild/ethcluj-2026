@@ -5,6 +5,9 @@
 	<title>{{TITLE}}</title>
 
 	<link rel="stylesheet" href="/style.css" type="text/css">
+
+	<!-- Prism theme -->
+	<link href="https://cdn.jsdelivr.net/npm/prismjs/themes/prism-tomorrow.css" rel="stylesheet">
 </head>
 
 <body>
@@ -26,7 +29,7 @@
 	</footer>
 
 	<aside id="chat-widget" aria-labelledby="chat-heading">
-		<details id="chat-panel" open>
+		<details id="chat-panel">
 			<summary id="chat-heading">Ask this page</summary>
 
 			<section id="chat-messages" aria-live="polite" aria-label="Chat messages"></section>
@@ -38,6 +41,15 @@
 			</form>
 		</details>
 	</aside>
+
+	<!-- Your chat logic -->
 	<script src="/chat.js"></script>
+
+	<!-- Prism core -->
+	<script src="https://cdn.jsdelivr.net/npm/prismjs/prism.js"></script>
+
+	<!-- Solidity language support -->
+	<script src="https://cdn.jsdelivr.net/npm/prismjs/components/prism-solidity.min.js"></script>
+
 </body>
 </html>
