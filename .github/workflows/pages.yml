@@ -1,68 +1,68 @@
-name: Build and deploy kew site
+- name: Check out site repo
+  uses: actions/checkout@v4
+  with:
+    path: site
 
-on:
-  push:
-    branches: ["trunk"]
-  workflow_dispatch:
+- name: Check out kew repo
+  uses: actions/checkout@v4
+  with:
+    repository: uint23/kew
+    ref: 4043c2e310b3a2a6ef0e2120db1f1ea5b2384bef
+    path: kew
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+- name: Set up Go
+  uses: actions/setup-go@v5
+  with:
+    go-version: "1.22"
 
-concurrency:
-  group: "pages"
-  cancel-in-progress: true
+- name: Install lowdown
+  run: |
+    sudo apt-get update
+    sudo apt-get install -y lowdown
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+- name: Patch kew nav links to be relative
+  working-directory: kew
+  run: |
+    python3 - <<'PY'
+    from pathlib import Path
+    import sys
 
-    steps:
-      - name: Check out site repo
-        uses: actions/checkout@v4
-        with:
-          path: site
+    p = Path("kew.go")
+    s = p.read_text()
 
-      - name: Check out kew repo
-        uses: actions/checkout@v4
-        with:
-          repository: uint23/kew
-          path: kew
+    old1 = '''\t\tp := f.Path
+\t\tif !strings.HasPrefix(p, "/") {
+\t\t\tp = "/" + p
+\t\t}
+'''
+    new1 = '''\t\tp := f.Path
+'''
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.22"
+    old2 = '''\t\tp := d.Path
+\t\tif !strings.HasPrefix(p, "/") {
+\t\t\tp = "/" + p
+\t\t}
+'''
+    new2 = '''\t\tp := d.Path
+'''
 
-      - name: Install lowdown
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y lowdown
+    if old1 not in s:
+        sys.exit("Did not find file-link nav block to patch")
+    if old2 not in s:
+        sys.exit("Did not find directory-link nav block to patch")
 
-      - name: Build kew
-        working-directory: kew
-        run: go build -o kew .
+    s = s.replace(old1, new1)
+    s = s.replace(old2, new2)
 
-      - name: Build site
-        run: |
-          mkdir -p public
-          ./kew/kew site/blog public
-          touch public/.nojekyll
+    p.write_text(s)
+    PY
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
+- name: Build kew
+  working-directory: kew
+  run: go build -o kew .
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+- name: Build site
+  run: |
+    mkdir -p public
+    ./kew/kew site/blog public
+    touch public/.nojekyll
