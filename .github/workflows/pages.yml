@@ -3,6 +3,9 @@ name: Build and deploy kew site
 on:
   push:
     branches: ["trunk"]
+    paths:
+      - "blog/**"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
