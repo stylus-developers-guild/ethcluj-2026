@@ -1,68 +1,106 @@
-- name: Check out site repo
-  uses: actions/checkout@v4
-  with:
-    path: site
+name: Build and deploy kew site
 
-- name: Check out kew repo
-  uses: actions/checkout@v4
-  with:
-    repository: uint23/kew
-    ref: 4043c2e310b3a2a6ef0e2120db1f1ea5b2384bef
-    path: kew
+on:
+  push:
+    branches: ["master"]
+  workflow_dispatch:
 
-- name: Set up Go
-  uses: actions/setup-go@v5
-  with:
-    go-version: "1.22"
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
-- name: Install lowdown
-  run: |
-    sudo apt-get update
-    sudo apt-get install -y lowdown
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
-- name: Patch kew nav links to be relative
-  working-directory: kew
-  run: |
-    python3 - <<'PY'
-    from pathlib import Path
-    import sys
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-    p = Path("kew.go")
-    s = p.read_text()
+    steps:
+      - name: Check out site repo
+        uses: actions/checkout@v4
+        with:
+          path: site
 
-    old1 = '''\t\tp := f.Path
-\t\tif !strings.HasPrefix(p, "/") {
-\t\t\tp = "/" + p
-\t\t}
-'''
-    new1 = '''\t\tp := f.Path
-'''
+      - name: Check out kew repo
+        uses: actions/checkout@v4
+        with:
+          repository: uint23/kew
+          ref: 4043c2e310b3a2a6ef0e2120db1f1ea5b2384bef
+          path: kew
 
-    old2 = '''\t\tp := d.Path
-\t\tif !strings.HasPrefix(p, "/") {
-\t\t\tp = "/" + p
-\t\t}
-'''
-    new2 = '''\t\tp := d.Path
-'''
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
 
-    if old1 not in s:
-        sys.exit("Did not find file-link nav block to patch")
-    if old2 not in s:
-        sys.exit("Did not find directory-link nav block to patch")
+      - name: Install lowdown
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lowdown
 
-    s = s.replace(old1, new1)
-    s = s.replace(old2, new2)
+      - name: Patch kew nav links to be relative
+        working-directory: kew
+        run: |
+          python3 -c '
+          from pathlib import Path
+          import sys
 
-    p.write_text(s)
-    PY
+          p = Path("kew.go")
+          s = p.read_text()
 
-- name: Build kew
-  working-directory: kew
-  run: go build -o kew .
+          old1 = """\t\tp := f.Path
+          \t\tif !strings.HasPrefix(p, "/") {
+          \t\t\tp = "/" + p
+          \t\t}
+          """
+          new1 = """\t\tp := f.Path
+          """
 
-- name: Build site
-  run: |
-    mkdir -p public
-    ./kew/kew site/blog public
-    touch public/.nojekyll
+          old2 = """\t\tp := d.Path
+          \t\tif !strings.HasPrefix(p, "/") {
+          \t\t\tp = "/" + p
+          \t\t}
+          """
+          new2 = """\t\tp := d.Path
+          """
+
+          if old1 not in s:
+              sys.exit("Did not find file-link nav block to patch")
+          if old2 not in s:
+              sys.exit("Did not find directory-link nav block to patch")
+
+          s = s.replace(old1, new1)
+          s = s.replace(old2, new2)
+
+          p.write_text(s)
+          '
+
+      - name: Build kew
+        working-directory: kew
+        run: go build -o kew .
+
+      - name: Build site
+        run: |
+          mkdir -p public
+          ./kew/kew site/blog public
+          touch public/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
