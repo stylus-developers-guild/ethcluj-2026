@@ -60,14 +60,21 @@ jobs:
               r'p := c\.Path\s+if !strings\.HasPrefix\(p,\s*"/"\)\s*\{\s*p = "/" \+ p\s*\}',
               re.MULTILINE
           )
+          cur_pat = re.compile(
+              r'cur := relhtml\s+if !strings\.HasPrefix\(cur,\s*"/"\)\s*\{\s*cur = "/" \+ cur\s*\}',
+              re.MULTILINE
+          )
 
           s, n1 = file_pat.subn('p := f.Path', s, count=1)
           s, n2 = dir_pat.subn('p := c.Path', s, count=1)
+          s, n3 = cur_pat.subn('cur := relhtml', s, count=1)
 
           if n1 != 1:
               sys.exit(f"Expected to patch file-link block once, patched {n1} times")
           if n2 != 1:
               sys.exit(f"Expected to patch directory-link block once, patched {n2} times")
+          if n3 != 1:
+              sys.exit(f"Expected to patch current-page block once, patched {n3} times")
 
           p.write_text(s)
           PY
