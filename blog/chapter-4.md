@@ -282,7 +282,7 @@ And navigate to the browser to try our change. Now when you connect your wallet 
 
 For the next step, we’ll start adding our [ABI](https://docs.soliditylang.org/en/latest/abi-spec.html) for WETH. The ABI is basically like guardrails on how to format and build our function calls in order to interact with the WETH contract. So we head to the [WETH contract on etherscan](https://etherscan.io/token/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2) and the “contract” button:
 
-![image.png](attachment:969e7249-d9c7-4aed-b711-1f3eddecb438:image.png)
+![image.png](./images/etherscan-contracts.png)
 
 After that scroll down until you see the field “Contract ABI” and copy the full contents of the textbox. Then, inside of our src/ directory, create a new directory called “abis”. Inside here, you create a file called weth.ts. Start writing:
 
