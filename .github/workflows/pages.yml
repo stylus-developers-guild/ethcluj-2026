@@ -5,7 +5,6 @@ on:
     branches: ["trunk"]
     paths:
       - "blog/**"
-      - "frontend/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -79,27 +78,10 @@ jobs:
         working-directory: kew
         run: go build -o kew .
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: site/frontend/package-lock.json
-
-      - name: Install frontend deps
-        working-directory: site/frontend
-        run: npm ci
-
-      - name: Build frontend
-        working-directory: site/frontend
-        run: npm run build
-
       - name: Build site
         run: |
           mkdir -p public
           ./kew/kew site/blog public
-          mkdir -p public/frontend
-          cp -R site/frontend/dist/* public/frontend/
           touch public/.nojekyll
 
       - name: Upload Pages artifact
