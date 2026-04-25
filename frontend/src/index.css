@@ -1,176 +1,21 @@
-/**
- * Styling adapted from the EthCluj 2026 blog:
- * https://github.com/stylus-developers-guild/ethcluj-2026/blob/trunk/blog/style.css
- *
- * Same palette, typography, and link/highlight feel — extended only with the
- * minimum needed for our form controls and 3-column challenge sections.
- */
 :root {
-  --bg: #FFFFEA;
-  --fg: #000000;
-  --fg-link: #000000;
-  --hl: #EAFFFF;
+  background-color: #181818;
+  color: rgba(255, 255, 255, 0.87);
+  color-scheme: light dark;
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-synthesis: none;
+  font-weight: 400;
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
 }
 
-/* global */
-body {
-  margin: 0;
-  padding: 20px;
-  background: var(--bg);
-  color: var(--fg);
-  font-family: serif;
-  font-size: 16px;
-  line-height: 1.2;
-}
-
-/* header */
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 0 0 20px 0;
-}
-
-h1 {
-  margin: 0;
-  font-size: 35px;
-  font-weight: normal;
-  font-style: italic;
-}
-
-/* header nav (wallet status + connect button) */
-header > nav {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 14px;
-}
-
-/* sections (one per challenge) */
-h2 {
-  margin: 30px 0 12px 0;
-  font-size: 25px;
-  font-weight: normal;
-}
-
-h3 {
-  margin: 0 0 8px 0;
-  font-size: 17px;
-  font-weight: normal;
-}
-
-hr {
-  border: none;
-  border-top: 1px solid var(--fg);
-  margin: 30px 0 0 0;
-}
-
-/* links */
-a {
-  color: var(--fg-link);
-  text-decoration: none;
-  padding: 1px 2px;
-}
-
-a:hover {
-  background: var(--hl);
-  color: var(--fg);
-}
-
-/* 3-column challenge layout: Actions | State | Logs */
-section {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 24px;
-  align-items: start;
-  max-width: 1200px;
-}
-
-article {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-/* form controls — borrow the chat-widget aesthetic */
-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-}
-
-label > span {
-  min-width: 70px;
-}
-
-input, select, textarea, button {
-  background: transparent;
-  color: var(--fg);
-  border: 1px solid var(--fg);
-  padding: 6px;
-  font-family: inherit;
-  font-size: 14px;
-}
-
-input::placeholder {
-  color: var(--fg);
-  opacity: 0.7;
-}
-
-input[type="number"], input[type="text"] {
-  flex: 1;
-  min-width: 0;
-}
-
-button {
-  cursor: pointer;
-  align-self: flex-start;
-  padding: 6px 10px;
-}
-
-button:hover:not(:disabled) {
-  background: var(--hl);
-  color: var(--fg);
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-/* read-only output blocks (state + logs) */
-output, pre {
-  display: block;
-  border: 1px solid var(--fg);
-  padding: 8px;
-  font-family: monospace;
-  font-size: 13px;
-  white-space: pre-wrap;
-  min-height: 6rem;
-  background: var(--bg);
-}
-
-code {
-  font-family: monospace;
-  font-size: 14px;
-}
-
-/* state readouts */
-dl {
-  margin: 0;
-  display: grid;
-  grid-template-columns: max-content auto;
-  gap: 4px 12px;
-  font-size: 14px;
-}
-
-dt {
-  color: #333;
-}
-
-dd {
-  margin: 0;
-  font-family: monospace;
+@media (prefers-color-scheme: light) {
+  :root {
+    background-color: #f8f8f8;
+    color: #181818;
+  }
 }
