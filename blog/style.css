@@ -1,7 +1,8 @@
 :root {
   --bg: #FFFFEA;
   --fg: #000000;
-  --fg-link: #000000;
+  --fg-link: #0645ad;
+  --fg-link-visited: #551a8b;
   --hl: #EAFFFF;
 }
 
@@ -28,9 +29,22 @@ header h1 {
   font-style: italic;
 }
 
-header a {
+header a,
+header a:visited {
   color: var(--fg);
   text-decoration: none;
+}
+
+header a:hover {
+  background: none;
+  color: var(--fg);
+}
+
+header a:focus-visible {
+  background: none;
+  color: var(--fg);
+  outline: 1px solid var(--fg-link);
+  outline-offset: 2px;
 }
 
 /* sidebar */
@@ -61,13 +75,24 @@ header a {
 /* links */
 a {
   color: var(--fg-link);
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.12em;
   padding: 1px 2px;
+}
+
+a:visited {
+  color: var(--fg-link-visited);
 }
 
 a:hover {
   background: var(--hl);
-  color: var(--fg);
+  color: var(--fg-link);
+}
+
+a:focus-visible {
+  background: var(--hl);
+  color: var(--fg-link);
 }
 
 /* article */
