@@ -2,6 +2,10 @@
 
 Now it is time to get our hands dirty. All of us are going to develop and deploy our first smart contract. It will be fun!
 
+First of all, before we begin there are some steps we need to do to have everything setup. Firstly, if you don’t already have one, install an ethereum wallet to your browser. Usually [Metamask](https://metamask.io) is the easiest to start with. After this is installed, I want you to go to [Chainlist](https://chainlist.org), check the “include testnet” field, and search for SuperPosition and add “Superposition Testnet”. Lastly, I want you to go to the [SuperPosition](https://faucet.superposition.so) faucet, and request some testnet funds.
+
+![Chainlist SuperPosition](images/chainlist-superposition.png)
+
 Let us all go to [https://remix.live](https://remix.live/) . We don’t have to download anything at this point, don’t worry. Start by navigating to the editor, then underneath the folder “Contracts”, add a new file called “EthCluj.sol”. Before we can get to coding some real programs, there are a couple of boilerplate things we need to add to our file. Namely:
 
 ```solidity
@@ -297,4 +301,6 @@ contract EthCluj {
 }
 ```
 
-Wow, we definitely learned a lot today. From what we learned now, I have prepared some smart contract [challenges](https://github.com/stylus-developers-guild/ethcluj-2026/tree/trunk/solidity-challenges).
+The last step of our journey here will be to, in the “Deploy and Run Transactions” side tab, swap the Environment from Remix VM to “Browser Extension” and then choose “Metamask”. Make sure that you are currently on the SuperPosition Testnet. Then you can try to hit the deploy button again and try all the functions directly on an actual chain. 
+
+Wow, we definitely learned a lot today. From what we learned now, I have prepared some smart contract challenges.
