@@ -18,14 +18,14 @@ build/
 # --- Frontend (explicit) ---
 frontend/node_modules/
 frontend/dist/
-frontend-challenges/node_modules/
-frontend-challenges/dist/
+frontend-codealong/node_modules/
+frontend-codealong/dist/
 
 # IMPORTANT: ensure lockfile is tracked
 !frontend/package-lock.json
 !frontend/package.json
-!frontend-challenges/package-lock.json
-!frontend-challenges/package.json
+!frontend-codealong/package-lock.json
+!frontend-codealong/package.json
 
 # Editor directories and files
 .vscode/*
