@@ -1,5 +1,7 @@
 import { useConnect, useConnection, useConnectors, useDisconnect } from 'wagmi'
 
+// WETH_ADDRESS = "0x22b9fa698b68bBA071B513959794E9a47d19214c"
+
 function App() {
   const connection = useConnection()
   const { connect, status, error } = useConnect()
