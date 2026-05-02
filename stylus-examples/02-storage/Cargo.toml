@@ -1,0 +1,16 @@
+[package]
+name = "cluj-storage"
+version = "0.1.0"
+edition = "2024"
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+strip = false
+lto = "fat"
+debug = false
+rpath = false
+debug-assertions = false
+incremental = false
+
+[dependencies]
