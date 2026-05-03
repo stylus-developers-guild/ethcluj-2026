@@ -6,6 +6,7 @@ const panel = document.getElementById("chat-panel");
 
 const panelStorageKey = "chat-panel-open";
 const historyStorageKey = `chat-history:${window.location.pathname}`;
+const apiKeyStorageKey = "openai-api-key";
 
 function slugify(text) {
 	return String(text)
@@ -195,24 +196,157 @@ function setupPanelPersistence() {
 	});
 }
 
-async function askPage(question) {
-	const sections = extractSections(article);
-	const pageText = article ? article.innerText.trim() : document.body.innerText.trim();
+/* ── OpenAI API key management ── */
 
-	const response = await fetch("/ask", {
+function getApiKey() {
+	return localStorage.getItem(apiKeyStorageKey) || "";
+}
+
+function setApiKey(key) {
+	localStorage.setItem(apiKeyStorageKey, key.trim());
+}
+
+function clearApiKey() {
+	localStorage.removeItem(apiKeyStorageKey);
+}
+
+function showKeyPrompt() {
+	const overlay = document.getElementById("key-overlay");
+	if (overlay) overlay.hidden = false;
+}
+
+function hideKeyPrompt() {
+	const overlay = document.getElementById("key-overlay");
+	if (overlay) overlay.hidden = true;
+}
+
+function initKeyUI() {
+	const overlay = document.createElement("div");
+	overlay.id = "key-overlay";
+	overlay.hidden = true;
+
+	overlay.innerHTML = `
+		<form id="key-form">
+			<p>Enter your <a href="https://platform.openai.com/api-keys" target="_blank"
+				rel="noopener">OpenAI API key</a> to enable chat.
+				It stays in your browser's local storage and is sent directly to OpenAI.</p>
+			<input id="key-input" type="password" placeholder="sk-..." autocomplete="off">
+			<div class="key-buttons">
+				<button type="submit">Save</button>
+				<button type="button" id="key-cancel">Cancel</button>
+			</div>
+		</form>
+	`;
+
+	const widget = document.getElementById("chat-widget");
+	widget.appendChild(overlay);
+
+	const keyForm = document.getElementById("key-form");
+	const keyInput = document.getElementById("key-input");
+	const keyCancel = document.getElementById("key-cancel");
+
+	keyForm.addEventListener("submit", (e) => {
+		e.preventDefault();
+		const val = keyInput.value.trim();
+		if (!val) return;
+		setApiKey(val);
+		keyInput.value = "";
+		hideKeyPrompt();
+		updateKeyStatus();
+	});
+
+	keyCancel.addEventListener("click", () => {
+		keyInput.value = "";
+		hideKeyPrompt();
+	});
+
+	// "change key" / "set key" link inside the chat panel
+	const status = document.createElement("div");
+	status.id = "key-status";
+	const summary = panel.querySelector("summary");
+	summary.parentNode.insertBefore(status, summary.nextSibling);
+	updateKeyStatus();
+}
+
+function updateKeyStatus() {
+	const status = document.getElementById("key-status");
+	if (!status) return;
+	const key = getApiKey();
+	if (key) {
+		const masked = key.slice(0, 6) + "..." + key.slice(-4);
+		status.innerHTML = `Key: <code>${masked}</code> <a href="#" id="key-change">change</a> · <a href="#" id="key-clear">clear</a>`;
+	} else {
+		status.innerHTML = `<a href="#" id="key-set">Set OpenAI API key</a> to enable chat`;
+	}
+
+	const changeLink = document.getElementById("key-change");
+	const clearLink = document.getElementById("key-clear");
+	const setLink = document.getElementById("key-set");
+
+	if (changeLink) changeLink.addEventListener("click", (e) => { e.preventDefault(); showKeyPrompt(); });
+	if (clearLink) clearLink.addEventListener("click", (e) => { e.preventDefault(); clearApiKey(); updateKeyStatus(); });
+	if (setLink) setLink.addEventListener("click", (e) => { e.preventDefault(); showKeyPrompt(); });
+}
+
+/* ── OpenAI chat completions via fetch ── */
+
+function buildSystemPrompt(sections) {
+	const sectionList = sections
+		.map((s) => `## ${s.title} [id=${s.id}]\n${s.text}`)
+		.join("\n\n---\n\n");
+
+	return `You are a helpful assistant embedded in the Arbitrum Workshop blog. ` +
+		`Answer the user's question using ONLY the page content provided below. ` +
+		`If the answer is not in the content, say so honestly.\n\n` +
+		`After your answer, output a JSON array of relevant section links on a new line ` +
+		`prefixed with "SECTIONS:" — each item must have "id" and "title" fields matching ` +
+		`the section headers below. If no sections are especially relevant, output "SECTIONS: []".\n\n` +
+		`Page: ${document.title}\n` +
+		`URL: ${window.location.href}\n\n` +
+		`--- PAGE CONTENT ---\n\n${sectionList}`;
+}
+
+function parseAssistantResponse(text) {
+	const sectionsMatch = text.match(/SECTIONS:\s*(\[.*\])/s);
+	let links = [];
+	let answer = text;
+
+	if (sectionsMatch) {
+		try {
+			links = JSON.parse(sectionsMatch[1]);
+		} catch (_) {
+			links = [];
+		}
+		answer = text.slice(0, sectionsMatch.index).trim();
+	}
+
+	return { answer, links };
+}
+
+async function askPage(question) {
+	const key = getApiKey();
+	if (!key) {
+		showKeyPrompt();
+		throw new Error("Please set your OpenAI API key first.");
+	}
+
+	const sections = extractSections(article);
+	const systemPrompt = buildSystemPrompt(sections);
+
+	const response = await fetch("https://api.openai.com/v1/chat/completions", {
 		method: "POST",
 		headers: {
-			"Content-Type": "application/json"
+			"Content-Type": "application/json",
+			"Authorization": `Bearer ${key}`
 		},
 		body: JSON.stringify({
-			question,
-			page: {
-				title: document.title,
-				path: window.location.pathname,
-				url: window.location.href,
-				text: pageText,
-				sections
-			}
+			model: "gpt-4.1-nano",
+			messages: [
+				{ role: "system", content: systemPrompt },
+				{ role: "user", content: question }
+			],
+			temperature: 0.3,
+			max_tokens: 1024
 		})
 	});
 
@@ -220,22 +354,39 @@ async function askPage(question) {
 		let message = `HTTP ${response.status}`;
 		try {
 			const err = await response.json();
-			if (err && err.error) message = err.error;
+			if (err && err.error && err.error.message) message = err.error.message;
 		} catch (_) {}
+
+		if (response.status === 401) {
+			clearApiKey();
+			updateKeyStatus();
+			throw new Error("Invalid API key. Please set a valid key.");
+		}
+
 		throw new Error(message);
 	}
 
-	return response.json();
+	const data = await response.json();
+	const raw = data.choices?.[0]?.message?.content || "No answer returned.";
+	return parseAssistantResponse(raw);
 }
+
+/* ── Init ── */
 
 setupPanelPersistence();
 restoreHistory();
+initKeyUI();
 
 form.addEventListener("submit", async (e) => {
 	e.preventDefault();
 
 	const question = input.value.trim();
 	if (!question) return;
+
+	if (!getApiKey()) {
+		showKeyPrompt();
+		return;
+	}
 
 	addMessage("You", question);
 	input.value = "";
@@ -244,10 +395,19 @@ form.addEventListener("submit", async (e) => {
 		panel.open = true;
 	}
 
+	// Show a thinking indicator
+	const thinking = document.createElement("article");
+	thinking.className = "chat-msg chat-thinking";
+	thinking.innerHTML = "<h3>Bot</h3><p>Thinking...</p>";
+	messages.appendChild(thinking);
+	messages.scrollTop = messages.scrollHeight;
+
 	try {
 		const result = await askPage(question);
+		thinking.remove();
 		addMessage("Bot", result.answer || "No answer returned.", result.links || []);
 	} catch (err) {
+		thinking.remove();
 		addMessage("Bot", `Error: ${err.message}`);
 	}
 });
