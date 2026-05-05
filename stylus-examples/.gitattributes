@@ -1,0 +1,1 @@
+01-simple-contract/01-simple-contract.wasm filter=lfs diff=lfs merge=lfs -text
