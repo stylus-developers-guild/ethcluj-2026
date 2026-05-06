@@ -17,3 +17,5 @@
 [Wizard stylus text editor](https://thewizard.app/)
 
 [Stackblitz full stack text editor](https://stackblitz.com/)
+
+[Wagmi ethereum react hooks, use this link for docs](https://wagmi.sh/)
