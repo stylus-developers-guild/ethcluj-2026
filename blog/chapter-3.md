@@ -456,7 +456,8 @@ def execute(code, stack = None, pc = 0):
 			return stack
 ```
 
-The Python uses tuples and recursion to implement our simple machine simply. If we were to invoke it like this:
+The Python uses tuples and recursion to implement our simple machine simply. If we were to
+invoke it like this:
 
 ```python
 if __name__ == "__main__":
