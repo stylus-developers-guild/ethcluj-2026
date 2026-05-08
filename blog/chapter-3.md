@@ -26,7 +26,7 @@ end application state.
 Imagine a calculator state machine that we’ll turn into a blockchain. Borrowing some Go
 syntax, the calculator state could look like the following:
 
-```go
+```typescript
 interface Transaction {
   Op: Op;          // operation code
   No?: number;     // optional immediate value
@@ -81,7 +81,7 @@ A program could pattern match recursively the structure and find the answer pret
 quickly. But, the above is just a state machine. How do we turn it into a blockchain?
 Using our above example, let’s add four more fields:
 
-```go
+```typescript
 interface Transaction {
   Op: Op;                   // operation code
   No?: number;              // optional immediate value
@@ -145,7 +145,7 @@ What does a signature look like? Let’s write some Go code. Go has great librar
 for working with the signature type we’re discussing here. The following code will emit
 private keys, public keys that are compressed in size, and signatures:
 
-```go
+```
 package main
 
 import (
@@ -278,7 +278,7 @@ If we were to do the sign the final step in the operation chain from before, but
 unlike the previous example of just the inputs the user is immediately responsible for we
 include everything that came before:
 
-```go
+```shell
 b% echo -n '{"op":1,"c":{"op":0,"no":10,"c":{"op":2,"c":{"op":0,"no":20,"c":{"op":0,"no":30}}}}}' | ./private-key-picker
 private key: c5406d7b5e55aa41352a96f5772641e6cb446b0a4109e451555acfdb8ca320fb, pubkey: 027956e423088cbf5cd3896d979abaf681c153c02292a8d29856fc07358e022a7c
 r: 109490587954065224018665916114696439326893613653236139668140228769916996904930, s: 52847444640315674408619378992306125231504692620405526333529832338143970682812
@@ -479,7 +479,7 @@ stack is larger than the value next on the stack. Our stack program also returns
 return status of the program as a tuple now, which we can use to check if the program
 executed correctly.
 
-```go
+```shell
 def execute(code, stack = None, pc = 0):
 	(op, imm) = code[pc]
 	match op:
@@ -508,7 +508,7 @@ def execute(code, stack = None, pc = 0):
 
 We could now implement a program that checks if the head of the stack is larger than 10:
 
-```go
+```python
 if __name__ == "__main__":
 	code = [
 		("PUSH", 2),
@@ -533,7 +533,7 @@ ask what was in the previous transactions?
 Let’s add a feature that lets us check what the currently accumulating value in the
 calculator is, using an operation called `CURBLOCKVALS`.
 
-```go
+```python
 def execute(calc_acc, code, stack = None, pc = 0):
 	def loop(stack, pc):
 		(op, imm) = code[pc]
@@ -568,7 +568,7 @@ Note that in the above we add a new argument, `calc_acc`. `calc_acc` is the accu
 value on the blockchain of the previous calculator operations. Armed with the above, we
 could amend our example from earlier to include this operation:
 
-```go
+```python
 if __name__ == "__main__":
 	cur_calc_state = 30
 	code = [
@@ -601,7 +601,7 @@ programmability to our machine.
 
 Let’s add a simple operation that just adds to the chain a number:
 
-```go
+```
 PUSH 10
 RETURN
 ```
@@ -609,7 +609,7 @@ RETURN
 This would simply add “10” to the chain. Let’s bake this stack language into our
 transaction system from before:
 
-```go
+```typescript
 interface Stack {
   Op: string;
   Val: number;
@@ -626,7 +626,7 @@ interface Transaction {
 Note that Transaction now no longer includes the Op and Val fields, only now having a
 stack. It would look like this possibly:
 
-```go
+```typescript
 const tx: Transaction = {
   Code: [
     { Op: "PUSH", Val: 10 },
@@ -777,7 +777,7 @@ supply it to keccak256. We can then take the last 20 bytes from the result to ha
 address. This system lets us save on space by paying a computation expense. This is the
 action in progress:
 
-```go
+```
 keccak256(createPublicKey(randomBytes)[1:])[12:]
 ```
 
@@ -846,7 +846,7 @@ of EVM words (32 byte numbers).
 Accounts that lack code, aka Externally Owned Accounts, send transactions. Transactions
 that interact with the chain in their basic form look like this on Arbitrum:
 
-```go
+```typescript
 type Address = string;  // 20 bytes  40char hex (or "0x" + 40 hex)
 
 interface Transaction {
@@ -915,7 +915,7 @@ were to deploy a contract, and it’s the first transaction for this address so 
 0, we would end up with the contract deployment here:
 
 
-```go
+```
 keccak256(pack(0x09fe2a16951fdb076a1d331e7f9227ebf0d8e6c1, 0))[12:] = 0x671687fb252f7581D8CFbc9A00009B0c4C3cc916
 ```
 
@@ -992,10 +992,7 @@ interpreter.
 
 The process of the Arbitrum node running WASM converted code on-chain is like this:
 
-```mermaid
-flowchart LR
-  WASM --> CREATE --> Activate --> Run
-```
+![Conversion of WASM on-chain](https://kroki.io/mermaid/svg/eNpLy8kvT85ILCpR8AniUlAIdwz2VdDVtVNwDnJ1DHEFMx2TSzLLEktSwZyg0jwAhvYOrQ==)
 
 First, the programming language Rust is written so as to be is compiled to WASM using the
 Rust compiler leveraging LLVM.
