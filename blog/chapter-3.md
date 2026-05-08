@@ -201,8 +201,7 @@ specific size that is unique to the data that was inputted. The most common hash
 strategy is sha256, which you may have seen in other places involving file integrity.
 Hashing isn’t just important for integrity of data: it’s essential to coming up with keyed
 datastructures including maps and hashtables, pointer protection, and more. With the
-secp256k1 signature system, we use a modern hashing system, sha3 (otherwise known as
-keccak256, a term we’ll use interchangeably) system.
+secp256k1 signature system in the Go code, we use sha256.
 
 If we run this code, the program output would be:
 
@@ -263,7 +262,7 @@ system to validate that the author of each Transaction blob for the calculator, 
 key, created the op and number here for addition.
 
 How do we give our blockchain meaning? We chose the calculator example, since it’s a state
-machine everyone understands that may or may not depend on being commutive (able to take
+machine everyone understands that may or may not depend on being commutative (able to take
 arguments independently). Let’s extrapolate it further.
 
 ## What are transactions?
@@ -282,7 +281,7 @@ include everything that came before:
 ```go
 b% echo -n '{"op":1,"c":{"op":0,"no":10,"c":{"op":2,"c":{"op":0,"no":20,"c":{"op":0,"no":30}}}}}' | ./private-key-picker
 private key: c5406d7b5e55aa41352a96f5772641e6cb446b0a4109e451555acfdb8ca320fb, pubkey: 027956e423088cbf5cd3896d979abaf681c153c02292a8d29856fc07358e022a7c
-x: 109490587954065224018665916114696439326893613653236139668140228769916996904930, s: 52847444640315674408619378992306125231504692620405526333529832338143970682812
+r: 109490587954065224018665916114696439326893613653236139668140228769916996904930, s: 52847444640315674408619378992306125231504692620405526333529832338143970682812
 ```
 
 We could only append to the chain with a valid signature so it’s not possible to
@@ -367,7 +366,7 @@ people interested in this chain): they can just sign the transaction they want l
 ```bash
 b % echo -n '{"op":0,"no":20,"before":[0,30]}' | ./private-key-picker
 private key: f58dd4d235754c9fc2750d2e55e1ba67638a0a5f3d41cf931400209fc6b92f6, pubkey: 024f476e1b9368ae50ab34573bc7b0be7c590c9f634796d4e0ad072d8b21108ba1
-x: 13701538462231091527866200836950950743407758947180296657773133663066990370872, s: 113336431400841648482223458012748904845724013047034353917738642742656731282990
+r: 13701538462231091527866200836950950743407758947180296657773133663066990370872, s: 113336431400841648482223458012748904845724013047034353917738642742656731282990
 ```
 
 Then share it to the Block producer:
@@ -377,7 +376,7 @@ Then share it to the Block producer:
 # for the signer for brevity reasons:
 b % echo -n '{"transaction":[{"op":2,"before":[0,30]}],"b":{"transaction":[{"op":0,"no":20,"before":[0,30]}],"block_producer_pubkey":"0385550d6b0cb13676a6769db36b775b8d49a1be71f6449f8785cd73bc1ffd8e3d","r":"86030860734043180344371311626322149138169356980983536493285126474363242170697","s":"86030860734043180344371311626322149138169356980983536493285126474363242170697"}}' | ./private-key-picker
 private key: 5c8b95f23979f3f6e3c70f502ddfdd8f26eb94cb5c9ec8e82d514f79785f6f54, pubkey: 0306271c7a9957cef4b34be8627b9a56580593a187d799c478324e2dbae64ca704
-x: 58746628405342652628129852483027334912560882418649680529364128475182863919908, s: 37375918562291893242652039551230332408939357744305368896508701819625797352813
+r: 58746628405342652628129852483027334912560882418649680529364128475182863919908, s: 37375918562291893242652039551230332408939357744305368896508701819625797352813
 ```
 
 Which would result in this layout:
@@ -769,7 +768,8 @@ Arbitrum identifies accounts by their public key, which it converts to a special
 called an address. What’s an address, why are Accounts addressed by it? When we introduced
 public keys earlier, they were 65 bytes large. It’s possible to reduce the size somewhat
 safely to 20 bytes by taking the public key we introduced earlier, taking it and then
-keccak256 hashing it.
+hashing it. Arbitrum uses another hashing function that we don't use in the code from
+above, keccak256.
 
 To do this, we need to take the public key in its uncompresed form, prune the first byte
 (which is used to indicate that the public key is compressed or uncompresed), and then
@@ -1168,7 +1168,7 @@ This is equivalent to the EVM’s linear memory, with the exception that our mem
 it’s used based on the offset, and we don’t align the memory that gets allocated. We don’t
 ask for more memory, it becomes available as we go to use it. We chose big endian as the
 encoding format for no reason other than on Arbitrum that’s the standard encoding
-convention in calldata (WASM is a linear endian machine).
+convention in calldata (WASM is a little endian machine).
 
 The above machine could be manipulated like this:
 
@@ -1364,8 +1364,8 @@ interface WasmSoFar {
 }
 ```
 
-Remember that WASM in the Arbitrum Stylus context has 32-byte words, so we need a stack to
-store these numbers instead of a contiguous block of memory.
+Remember that WASM in the Arbitrum Stylus context has 4-byte (32 bit) words, so we need a
+stack to store these numbers instead of a contiguous block of memory.
 
 ### WASM and structured control flow
 
