@@ -23,8 +23,8 @@ In our example code, commits are referred to as transactions. The recursive data
 (or, state machine), is summed by a program that remembers what it has seen to generate an
 end application state.
 
-Imagine a calculator state machine that we’ll turn into a blockchain. Borrowing some Go
-syntax, the calculator state could look like the following:
+Imagine a calculator state machine that we’ll turn into a blockchain. The calculator state
+could look like the following:
 
 ```typescript
 interface Transaction {
@@ -46,9 +46,9 @@ enum Op {
 }
 ```
 
-When the `OpPush` operation is used, we provide a number that is used in our transitive
-storage of the operations. So, to create a formula of `10 + 20 * 30` (with the end result
-being `610`), our state machine would look like the following:
+When the `Op.Push` operation is used (number 0), we provide a number that is used in our
+transitive storage of the operations. So, to create a formula of `10 + 20 * 30` (with the
+end result being `610`), our state machine would look like the following:
 
 ```tsx
 const example1: Transaction = {
