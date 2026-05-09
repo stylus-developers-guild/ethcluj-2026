@@ -1,14 +1,36 @@
-use stylus_sdk::{alloy_primitives::*, block, contract, msg, prelude::*, storage::*};
+#![cfg_attr(not(any(test, feature = "export-abi")), no_main)]
+extern crate alloc;
 
-use alloc::{vec, vec::Vec};
+use stylus_sdk::{alloy_primitives::*, prelude::*, storage::*};
+
+use alloc::vec::Vec;
+
+mod error;
+mod immutables;
 
 use crate::{
-    chainlink, erc20_call,
     error::Error,
     immutables::{
         ARB_ADDR, COLLATERAL_REQ, INTEREST_PER_SEC_RATE, SCALING_FACTOR, SECURITY_DEPOSIT,
     },
 };
+
+sol_interface! {
+    interface IERC20 {
+        function transfer(address to, uint256 amount) external returns (bool);
+        function transferFrom(address from, address to, uint256 amount) external returns (bool);
+        function mint(address to, uint256 amount) external;
+        function burn(address from, uint256 amount) external;
+    }
+}
+
+macro_rules! assert_or {
+    ($cond:expr, $err:expr) => {
+        if !($cond) {
+            return Err($err);
+        }
+    };
+}
 
 #[storage]
 pub struct StorageTimepoint {
@@ -21,7 +43,7 @@ pub struct StorageTimepoint {
 #[storage]
 #[entrypoint]
 pub struct StorageLender {
-    /// Was this proxy set up properly?
+    /// Was this contract set up properly?
     created: StorageU256,
 
     /// Token that we're associated with.
@@ -54,8 +76,11 @@ pub struct StorageLender {
 
 #[public]
 impl StorageLender {
-    pub fn ctor(&mut self, token: Address) -> Result<(), Vec<u8>> {
-        assert_or!(self.created.get().is_zero(), Error::AlreadyInitialised);
+    pub fn ctor(&mut self, token: Address) -> Result<(), Error> {
+        assert_or!(
+            self.created.get().is_zero(),
+            Error::AlreadyInitialised(error::AlreadyInitialised {}).into()
+        );
         self.token_addr.set(token);
         self.created.set(U256::from(1));
         Ok(())
@@ -75,27 +100,29 @@ impl StorageLender {
         let ticket = self.borrow_count.get();
         self.borrow_count.set(ticket + U256::from(1));
         let mut scaled_ausd_amt = ausd_amt * SCALING_FACTOR;
-        let mut scaled_token_collateral = ausd_amt * SCALING_FACTOR;
-        let scaled_usd_collateral = chainlink::value_of_asset(token_collateral)? * SCALING_FACTOR;
+        let mut scaled_token_collateral = token_collateral * SCALING_FACTOR;
         let is_underutilised =
-            Self::utilisation_rate(scaled_ausd_amt, scaled_usd_collateral) < COLLATERAL_REQ;
-        assert_or!(is_underutilised, Error::BadBorrowAttempt);
+            Self::utilisation_rate(scaled_ausd_amt, scaled_token_collateral) < COLLATERAL_REQ;
+        assert_or!(
+            is_underutilised,
+            Error::BadBorrowAttempt(error::BadBorrowAttempt {})
+        );
         let mut scaled_redemption_amt = scaled_token_collateral
             .checked_mul(
                 scaled_ausd_amt
-                    .checked_div(scaled_usd_collateral)
-                    .ok_or(Error::CheckedDiv)?,
+                    .checked_div(scaled_token_collateral)
+                    .ok_or(Error::CheckedDiv(error::CheckedDiv {}))?,
             )
-            .ok_or(Error::CheckedMul)?;
+            .ok_or(Error::CheckedMul(error::CheckedMul {}))?;
         scaled_redemption_amt = scaled_redemption_amt
             .checked_sub(scaled_redemption_amt * SECURITY_DEPOSIT)
-            .ok_or(Error::CheckedSub)?;
+            .ok_or(Error::CheckedSub(error::CheckedSub {}))?;
         let redemption_amt = scaled_redemption_amt / SCALING_FACTOR;
         self.token_for_redemption.set(
             self.token_for_redemption
                 .get()
                 .checked_add(redemption_amt)
-                .ok_or(Error::CheckedAdd)?,
+                .ok_or(Error::CheckedAdd(error::CheckedAdd {}))?,
         );
         let scaled_ausd_security_deposit = scaled_ausd_amt * SECURITY_DEPOSIT;
         let ausd_security_deposit = scaled_ausd_security_deposit / SCALING_FACTOR;
@@ -106,7 +133,7 @@ impl StorageLender {
             self.security_deposits
                 .get()
                 .checked_add(ausd_security_deposit)
-                .ok_or(Error::CheckedAdd)?,
+                .ok_or(Error::CheckedAdd(error::CheckedAdd {}))?,
         );
         // We have to scale this again so we correctly get the amount
         // adjusted for the security deposit.
@@ -115,7 +142,7 @@ impl StorageLender {
             self.cash_supply
                 .get()
                 .checked_add(ausd_amt)
-                .ok_or(Error::CheckedAdd)?,
+                .ok_or(Error::CheckedAdd(error::CheckedAdd {}))?,
         );
         let mut borrows = self.borrows.setter(ticket);
         let mut timepoint = borrows.grow();
@@ -133,15 +160,31 @@ impl StorageLender {
         token_collateral: U256,
         recipient: Address,
     ) -> Result<U256, Error> {
-        erc20_call::transfer_from(
-            ARB_ADDR,
-            msg::sender(),
-            contract::address(),
-            token_collateral,
-        )?;
-        let ticket = self.borrow_internal(block::timestamp(), ausd_amt, token_collateral)?;
+        let sender = self.vm().msg_sender();
+        let this = self.vm().contract_address();
+        let arb = IERC20::new(ARB_ADDR);
+        let config = Call::new_mutating(self);
+        arb.transfer_from(self.vm(), config, sender, this, token_collateral)
+            .map_err(|e| {
+                let e: Vec<u8> = e.into();
+                Error::ERC20Failed(error::ERC20Failed {
+                    reason: Bytes::from(e),
+                })
+            })?;
+        let cur_time: u64 = self.vm().block_timestamp().into();
+        let ticket = self.borrow_internal(cur_time, ausd_amt, token_collateral)?;
         self.ticket_owners.setter(ticket).set(recipient);
-        erc20_call::mint(self.token_addr.get(), recipient, ausd_amt)?;
+        let token_addr = self.token_addr.get();
+        let token = IERC20::new(token_addr);
+        let config = Call::new_mutating(self);
+        token
+            .mint(self.vm(), config, recipient, ausd_amt)
+            .map_err(|e| {
+                let e: Vec<u8> = e.into();
+                Error::ERC20Failed(error::ERC20Failed {
+                    reason: Bytes::from(e),
+                })
+            })?;
         Ok(ticket)
     }
 
@@ -157,7 +200,7 @@ impl StorageLender {
         let last_timepoint = borrows
             .getter(self.borrows.getter(ticket).len() - 1)
             .unwrap();
-        if last_timepoint.time.get() == U256::from(cur_time) {
+        if last_timepoint.time.get() == cur_time {
             return Ok((last_timepoint.time.get(), last_timepoint.interest.get()));
         }
         let scaled_outstanding_debt =
@@ -183,17 +226,19 @@ impl StorageLender {
         let debt_outstanding = self.debt.getter(ticket).get() + timepoint_interest;
         let scaled_debt_outstanding = debt_outstanding * SCALING_FACTOR;
         let token_collateral = self.collateral.getter(ticket).get();
-        let usd_collateral = chainlink::value_of_asset(token_collateral)?;
-        let scaled_usd_collateral = usd_collateral * SCALING_FACTOR;
-        let utilisation = Self::utilisation_rate(scaled_debt_outstanding, scaled_usd_collateral);
-        assert_or!(utilisation <= COLLATERAL_REQ, Error::NotAbleToLiquidate);
+        let scaled_token_collateral = token_collateral * SCALING_FACTOR;
+        let utilisation = Self::utilisation_rate(scaled_debt_outstanding, scaled_token_collateral);
+        assert_or!(
+            utilisation <= COLLATERAL_REQ,
+            Error::NotAbleToLiquidate(error::NotAbleToLiquidate {})
+        );
         self.debt.setter(ticket).set(U256::ZERO);
-        let collateral_diff = usd_collateral - debt_outstanding;
+        let collateral_diff = token_collateral - debt_outstanding;
         self.security_deposits
             .set(if collateral_diff > self.security_deposits.get() {
                 U256::ZERO
             } else {
-                usd_collateral - debt_outstanding
+                token_collateral - debt_outstanding
             });
         self.collateral.setter(ticket).set(U256::ZERO);
         self.debt.setter(ticket).set(U256::ZERO);
@@ -209,7 +254,7 @@ impl StorageLender {
     }
 
     pub fn liquidate(&mut self, ticket: U256) -> Result<(), Error> {
-        self.liquidate_internal(ticket, block::timestamp())
+        self.liquidate_internal(ticket, self.vm().block_timestamp().into())
     }
 
     fn repay_internal(
@@ -219,9 +264,8 @@ impl StorageLender {
         token_repay: U256,
     ) -> Result<(), Error> {
         let (_, timepoint_interest) = self.record_timepoint_internal(ticket, cur_time)?;
-        let usd_repay = chainlink::value_of_asset(token_repay)?;
         let borrows_len = self.borrows.getter(ticket).len();
-        let mut leftover = usd_repay;
+        let mut leftover = token_repay;
         if timepoint_interest > leftover {
             self.borrows
                 .setter(ticket)
@@ -249,13 +293,23 @@ impl StorageLender {
     }
 
     pub fn repay(&mut self, ticket: U256, token_repay: U256) -> Result<(), Error> {
-        // TODO: return the unused amounts to the user.
+        let sender = self.vm().msg_sender();
         assert_or!(
-            self.ticket_owners.getter(ticket).get() == msg::sender(),
-            Error::NotOwner
+            self.ticket_owners.getter(ticket).get() == sender,
+            Error::NotOwner(error::NotOwner {}).into()
         );
-        erc20_call::transfer_from(ARB_ADDR, msg::sender(), contract::address(), token_repay)?;
-        self.repay_internal(ticket, block::timestamp(), token_repay)
+        let this = self.vm().contract_address();
+        let arb = IERC20::new(ARB_ADDR);
+        let config = Call::new_mutating(self);
+        arb.transfer_from(self.vm(), config, sender, this, token_repay)
+            .map_err(|e| {
+                let e: Vec<u8> = e.into();
+                Error::ERC20Failed(error::ERC20Failed {
+                    reason: Bytes::from(e),
+                })
+            })?;
+        self.repay_internal(ticket, self.vm().block_timestamp(), token_repay)?;
+        Ok(())
     }
 
     fn redeem_internal(&mut self, cash: U256) -> Result<U256, Error> {
@@ -267,16 +321,36 @@ impl StorageLender {
     }
 
     pub fn redeem(&mut self, cash: U256, recipient: Address) -> Result<U256, Error> {
-        // TODO: modify the ERC20 to do this in one go.
-        erc20_call::transfer_from(
-            self.token_addr.get(),
-            msg::sender(),
-            contract::address(),
-            cash,
-        )?;
-        erc20_call::burn(self.token_addr.get(), cash)?;
+        let sender = self.vm().msg_sender();
+        let this = self.vm().contract_address();
+        let token_addr = self.token_addr.get();
+        let token = IERC20::new(token_addr);
+        let config = Call::new_mutating(self);
+        token
+            .transfer_from(self.vm(), config, sender, this, cash)
+            .map_err(|e| {
+                let e: Vec<u8> = e.into();
+                Error::ERC20Failed(error::ERC20Failed {
+                    reason: Bytes::from(e),
+                })
+            })?;
+        let config = Call::new_mutating(self);
+        token.burn(self.vm(), config, this, cash).map_err(|e| {
+            let e: Vec<u8> = e.into();
+            Error::ERC20Failed(error::ERC20Failed {
+                reason: Bytes::from(e),
+            })
+        })?;
         let redeemed = self.redeem_internal(cash)?;
-        erc20_call::transfer(ARB_ADDR, recipient, redeemed)?;
+        let arb = IERC20::new(ARB_ADDR);
+        let config = Call::new_mutating(self);
+        arb.transfer(self.vm(), config, recipient, redeemed)
+            .map_err(|e| {
+                let e: Vec<u8> = e.into();
+                Error::ERC20Failed(error::ERC20Failed {
+                    reason: Bytes::from(e),
+                })
+            })?;
         Ok(redeemed)
     }
 }

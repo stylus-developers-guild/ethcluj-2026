@@ -10,3 +10,18 @@ alloy-sol-types = ">=0.0.0"
 [features]
 contract-client-gen = []
 export-abi = ["stylus-sdk/export-abi"]
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[[bin]]
+name = "cluj-lending"
+path = "src/main.rs"
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+strip = true
+lto = "fat"
+debug = false
+panic = "abort"
