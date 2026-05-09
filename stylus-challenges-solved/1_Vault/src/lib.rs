@@ -1,12 +1,16 @@
 #![cfg_attr(not(any(test, feature = "export-abi")), no_main)]
-extern crate alloc;
+#![no_std]
 
-use alloy_primitives::{Address, U256};
-use alloy_sol_types::{sol, SolError};
 use stylus_sdk::{
+    alloy_primitives::{Address, Bytes, U256},
+    alloy_sol_types::sol,
     prelude::*,
     storage::{StorageAddress, StorageMap, StorageU256},
 };
+
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 
 sol_interface! {
     interface IERC20 {
@@ -27,16 +31,31 @@ pub struct TokenVault {
 sol! {
     event Deposit(address indexed user, uint256 amount, uint256 shares);
     event Withdraw(address indexed user, uint256 shares, uint256 amount);
-    error AlreadyInitialized();
+    error AlreadyInitialised();
     error InsufficientShares(address user, uint256 available, uint256 requested);
     error ZeroAmount();
+    error BalanceOf(bytes);
+    error TransferFrom(bytes);
+    error BurnShares(bytes);
+    error Transfer(bytes);
+}
+
+#[derive(Clone, SolidityError)]
+pub enum Error {
+    AlreadyInitialised(AlreadyInitialised),
+    InsufficientShares(InsufficientShares),
+    ZeroAmount(ZeroAmount),
+    BalanceOf(BalanceOf),
+    TransferFrom(TransferFrom),
+    BurnShares(BurnShares),
+    Transfer(Transfer),
 }
 
 #[public]
 impl TokenVault {
-    pub fn init(&mut self, token_addr: Address) -> Result<(), Vec<u8>> {
+    pub fn init(&mut self, token_addr: Address) -> Result<(), Error> {
         if self.token.get() != Address::ZERO {
-            return Err(AlreadyInitialized {}.abi_encode());
+            return Err(Error::AlreadyInitialised(AlreadyInitialised {}));
         }
         self.token.set(token_addr);
         Ok(())
@@ -54,67 +73,65 @@ impl TokenVault {
         self.shares_of.get(who)
     }
 
-    pub fn deposit_tokens(&mut self, amount: U256) -> Result<(), Vec<u8>> {
-        if amount == U256::ZERO {
-            return Err(ZeroAmount {}.abi_encode());
+    pub fn deposit_tokens(&mut self, amount: U256) -> Result<U256, Error> {
+        if amount.is_zero() {
+            return Err(Error::ZeroAmount(ZeroAmount {}));
         }
-
         let token_addr = self.token.get();
         let token = IERC20::new(token_addr);
         let vault_addr = self.vm().contract_address();
         let caller = self.vm().msg_sender();
-
-        let shares: U256;
         let current_total = self.total_shares.get();
-
-        if current_total == U256::ZERO {
-            shares = amount;
+        let shares = if current_total > U256::ZERO {
+            let vault_balance = token
+                .balance_of(self.vm(), Call::new(), vault_addr)
+                .map_err(|b| Error::BalanceOf(BalanceOf(stylus_err_to_bytes(b))))?;
+            (amount * current_total) / vault_balance
         } else {
-            let vault_balance = token.balance_of(self.vm(), Call::new(), vault_addr)?;
-            shares = (amount * current_total) / vault_balance;
-        }
-
+            amount
+        };
         self.mint_shares(caller, shares);
-
         let config = Call::new_mutating(self);
-        token.transfer_from(self.vm(), config, caller, vault_addr, amount)?;
-
+        token
+            .transfer_from(self.vm(), config, caller, vault_addr, amount)
+            .map_err(|b| Error::TransferFrom(TransferFrom(stylus_err_to_bytes(b))))?;
         self.vm().log(Deposit {
             user: caller,
             amount,
             shares,
         });
-
-        Ok(())
+        Ok(shares)
     }
 
-    pub fn withdraw_tokens(&mut self, shares: U256) -> Result<(), Vec<u8>> {
+    pub fn withdraw_tokens(&mut self, shares: U256) -> Result<U256, Error> {
         if shares == U256::ZERO {
-            return Err(ZeroAmount {}.abi_encode());
+            return Err(Error::ZeroAmount(ZeroAmount {}));
         }
-
         let token_addr = self.token.get();
         let token = IERC20::new(token_addr);
         let vault_addr = self.vm().contract_address();
         let caller = self.vm().msg_sender();
-
-        let vault_balance = token.balance_of(self.vm(), Call::new(), vault_addr)?;
+        let vault_balance = token
+            .balance_of(self.vm(), Call::new(), vault_addr)
+            .map_err(|b| Error::BalanceOf(BalanceOf(stylus_err_to_bytes(b))))?;
         let current_total = self.total_shares.get();
         let amount = (shares * vault_balance) / current_total;
-
         self.burn_shares(caller, shares)?;
-
         let config = Call::new_mutating(self);
-        token.transfer(self.vm(), config, caller, amount)?;
-
+        token
+            .transfer(self.vm(), config, caller, amount)
+            .map_err(|b| Error::Transfer(Transfer(stylus_err_to_bytes(b))))?;
         self.vm().log(Withdraw {
             user: caller,
             shares,
             amount,
         });
-
-        Ok(())
+        Ok(amount)
     }
+}
+
+fn stylus_err_to_bytes<T: Into<Vec<u8>>>(b: T) -> Bytes {
+    Bytes::from(b.into())
 }
 
 impl TokenVault {
@@ -125,15 +142,14 @@ impl TokenVault {
         self.shares_of.setter(to).set(new_balance);
     }
 
-    fn burn_shares(&mut self, from: Address, amount: U256) -> Result<(), Vec<u8>> {
+    fn burn_shares(&mut self, from: Address, amount: U256) -> Result<(), Error> {
         let current = self.shares_of.get(from);
-        if current < amount {
-            return Err(InsufficientShares {
+        if amount > current {
+            return Err(Error::InsufficientShares(InsufficientShares {
                 user: from,
                 available: current,
                 requested: amount,
-            }
-            .abi_encode());
+            }));
         }
         self.shares_of.setter(from).set(current - amount);
         let new_total = self.total_shares.get() - amount;
