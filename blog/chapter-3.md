@@ -145,7 +145,7 @@ What does a signature look like? Let’s write some Go code. Go has great librar
 for working with the signature type we’re discussing here. The following code will emit
 private keys, public keys that are compressed in size, and signatures:
 
-```
+```go
 package main
 
 import (
@@ -480,7 +480,7 @@ stack is larger than the value next on the stack. Our stack program also returns
 return status of the program as a tuple now, which we can use to check if the program
 executed correctly.
 
-```shell
+```python
 def execute(code, stack = None, pc = 0):
 	(op, imm) = code[pc]
 	match op:
@@ -1133,7 +1133,7 @@ operations that are interpreted as the program has its life. Our stack machine f
 calculator example could be extended to have a way for it to store information outside of
 the stack, or as its known, memory:
 
-```rust
+```python
 def mem_grow(ext, size):
 	diff = size - len(ext)
 	return ext + [0] * diff
@@ -1200,7 +1200,7 @@ Let’s implement some basic code that manipulates linear memory. Unlike our fir
 this stack is going to be byte aware (one item in the array is a byte) after encoding the
 integers it goes to store:
 
-```rust
+```python
 def mem_insert(src, dst, offset):
 	src = list(src)
 	mem = dst
@@ -1331,7 +1331,7 @@ perform the equivalent of push and pop.
 
 We’ve already seen how this works, but to recap the operand stack:
 
-```rust
+```python
 def execute(
 	code,
 	regs = [0] * 10,
@@ -1374,7 +1374,7 @@ with static destinations of the jump, being based on the stack.
 Extending our machine, we can add explicit control flow.Let’s extend the code to include a
 loop section and a if statement:
 
-```rust
+```python
 def execute(
 	code,
 	ctl,
@@ -1679,7 +1679,7 @@ Accounts each have a key-value addressed map that code associated with this acco
 run. This is how we can persist storage access in the EVM. It might look like this in our
 stack machine:
 
-```rust
+```python
 def execute(code, storage = {}, stack = None, pc = 0):
 	(op, imm) = code[pc]
 	match op:
