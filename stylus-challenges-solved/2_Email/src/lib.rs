@@ -4,7 +4,7 @@
 // which point users can not send emails to the recipient. If the
 // recipient does not claim their email inbox after a window has passed,
 // the original senders can claim a refund, and the recipient will remain
-// full. NOT FOR PRODUCTION. Does not check erc20 return values.
+// full. NOT FOR PRODUCTION: Does not check erc20 return values.
 
 #![no_std]
 
@@ -85,7 +85,6 @@ sol! {
     error ErrorContractTooOld();
     error ErrorTokenDisabled();
     error ErrorNotEnoughToken();
-    error ErrorNoRecipient();
     error ErrorEmailTooBackedUp();
     error ErrorTooManyEmails();
     error ErrorTransfer(bytes);
@@ -106,7 +105,6 @@ pub enum Error {
     ContractTooOld(ErrorContractTooOld),
     TokenDisabled(ErrorTokenDisabled),
     NotEnoughToken(ErrorNotEnoughToken),
-    NoRecipient(ErrorNoRecipient),
     TooManyEmails(ErrorTooManyEmails),
     EmailTooBackedUp(ErrorEmailTooBackedUp),
     Transfer(ErrorTransfer),
@@ -236,7 +234,7 @@ impl Storage {
     pub fn read_email(&mut self, recipient: Address) -> Result<(Vec<Address>, Vec<U256>), Error> {
         let sender = self.vm().msg_sender();
         let cursor = self.cursor.get(sender).into_limbs()[0] as usize;
-        let until = self.received_emails.getter(recipient).len();
+        let until = self.received_emails.getter(sender).len();
         let remaining = cursor - until;
         if remaining == 0 {
             return Ok((Vec::new(), Vec::new()));
@@ -248,7 +246,7 @@ impl Storage {
                 token_id, status, ..
             } = self
                 .received_emails
-                .getter(recipient)
+                .getter(sender)
                 .get(i)
                 .unwrap()
                 .into();
