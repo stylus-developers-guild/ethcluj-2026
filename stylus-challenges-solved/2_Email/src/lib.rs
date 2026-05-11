@@ -6,7 +6,7 @@
 // the original senders can claim a refund, and the recipient will remain
 // full. NOT FOR PRODUCTION: Does not check erc20 return values.
 
-#![no_std]
+#![cfg_attr(not(any(test, feature = "export-abi")), no_std)]
 
 extern crate alloc;
 
@@ -45,10 +45,12 @@ pub struct WordEmail {
 }
 
 /// Maximum unread emails.
+#[mutants::skip]
 pub const MAX_UNREAD_EMAILS: u32 = 100;
 
 /// The unread window that any senders become eligible for a refund if
 /// the user does not read within that window for.
+#[mutants::skip]
 pub const UNREAD_WINDOW: u64 = 24 * 60 * 60 * 7;
 
 #[entrypoint]
@@ -58,7 +60,7 @@ pub struct Storage {
     pub ts_epoch: StorageU64,
 
     /// Tokens that recipients are willing to receive, including their asks.
-    pub token_asks: StorageMap<Address, StorageMap<U32, StorageU256>>,
+    pub token_asks: StorageMap<Address, StorageVec<StorageU256>>,
 
     /// Token address lookup map to get the currently active token id based
     /// on the token given.
@@ -90,6 +92,11 @@ sol! {
     error ErrorTransfer(bytes);
     error ErrorPastDeadline();
     error ErrorTransferFrom(bytes);
+    error ErrorNotPastDeadline();
+    error ErrorAlreadyRefunded();
+    error ErrorTooManyTokens();
+    error ErrorNotYourEmail();
+    error ErrorEmailNonexistent();
 }
 
 sol_interface! {
@@ -110,24 +117,89 @@ pub enum Error {
     Transfer(ErrorTransfer),
     PastDeadline(ErrorPastDeadline),
     TransferFrom(ErrorTransferFrom),
+    NotPastDeadline(ErrorNotPastDeadline),
+    AlreadyRefunded(ErrorAlreadyRefunded),
+    TooManyTokens(ErrorTooManyTokens),
+    NotYourEmail(ErrorNotYourEmail),
+    EmailNonexistent(ErrorEmailNonexistent),
+}
+
+#[mutants::skip]
+impl core::fmt::Debug for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::ContractNotConfigured(_) => write!(f, "ContractNotConfigured"),
+            Self::ContractTooOld(_) => write!(f, "ContractTooOld"),
+            Self::TokenDisabled(_) => write!(f, "TokenDisabled"),
+            Self::NotEnoughToken(_) => write!(f, "NotEnoughToken"),
+            Self::TooManyEmails(_) => write!(f, "TooManyEmails"),
+            Self::EmailTooBackedUp(_) => write!(f, "EmailTooBackedUp"),
+            Self::Transfer(_) => write!(f, "Transfer"),
+            Self::PastDeadline(_) => write!(f, "PastDeadline"),
+            Self::TransferFrom(_) => write!(f, "TransferFrom"),
+            Self::NotPastDeadline(_) => write!(f, "NotPastDeadline"),
+            Self::AlreadyRefunded(_) => write!(f, "AlreadyRefunded"),
+            Self::TooManyTokens(_) => write!(f, "TooManyTokens"),
+            Self::NotYourEmail(_) => write!(f, "NotYourEmail"),
+            Self::EmailNonexistent(_) => write!(f, "EmailNonexistent"),
+        }
+    }
 }
 
 #[public]
 impl Storage {
+    /// Enable a token for a recipient with a given ask amount.
+    /// The token_id must be nonzero (0 is reserved as "disabled").
+    pub fn enable_token(&mut self, token_addr: Address, ask: U256) -> Result<U32, Error> {
+        let sender = self.vm().msg_sender();
+        let mut token_id = U32::from(self.token_asks.get(sender).len());
+        // We start all token ids from 1 so we can detect they're not set later:
+        if token_id.is_zero() {
+            token_id += U32::ONE;
+            unsafe {
+                // We start from 1 from this, so 0 is the sign that something isn't set:
+                self.token_asks.setter(sender).set_len(1);
+            }
+        }
+        self.ids_to_tokens
+            .setter(sender)
+            .setter(token_id)
+            .set(token_addr);
+        if !token_addr.is_zero() {
+            if token_id == U32::MAX {
+                // Final sanity check since the state will unwind if this is bad.
+                // Check that we're not about to exceed the limit of tokens that
+                // a user can have:
+                return Err(Error::TooManyTokens(ErrorTooManyTokens {}));
+            }
+            // Set the token to something if it's not set to zero:
+            self.token_asks.setter(sender).push(ask);
+            self.enabled_tokens
+                .setter(sender)
+                .setter(token_addr)
+                .set(token_id);
+        }
+        Ok(token_id)
+    }
+
     /// Estimate the amount needed for a email to be sent to a recipient.
-    pub fn estimate_amt_needed(&self, recipient: Address, token: Address) -> Result<U256, Error> {
-        let token_id = self.enabled_tokens.getter(recipient).get(token);
+    pub fn estimate_amt_needed(
+        &self,
+        recipient: Address,
+        token_addr: Address,
+    ) -> Result<U256, Error> {
+        let token_id = self.enabled_tokens.getter(recipient).get(token_addr);
         if token_id.is_zero() {
             return Err(Error::TokenDisabled(ErrorTokenDisabled {}));
         }
-        Ok(self.token_asks.getter(recipient).get(token_id))
+        Ok(self.token_asks.getter(recipient).get(token_id).unwrap())
     }
 
     pub fn send_email(
         &mut self,
         recipient: Address,
         refund_recipient: Address,
-        token: Address,
+        token_addr: Address,
         max_amt: U256,
         content: Bytes,
     ) -> Result<U256, Error> {
@@ -138,7 +210,7 @@ impl Storage {
             return Err(Error::ContractNotConfigured(ErrorContractNotConfigured {}));
         }
         // First, check that the token given is enabled.
-        let token_id = self.enabled_tokens.getter(recipient).get(token);
+        let token_id = self.enabled_tokens.getter(recipient).get(token_addr);
         if token_id.is_zero() {
             // The first value in this vector is always unset so we can make
             // use of this check.
@@ -146,7 +218,7 @@ impl Storage {
         }
         // The minimum token amount is the amount we'll actually take from
         // the user in the token they provided.
-        let min_amt = self.token_asks.getter(recipient).get(token_id);
+        let min_amt = self.token_asks.getter(recipient).get(token_id).unwrap();
         // If the token amount is more than we can provide, then we break:
         if min_amt > max_amt {
             return Err(Error::NotEnoughToken(ErrorNotEnoughToken {}));
@@ -172,20 +244,17 @@ impl Storage {
             // before having trouble receiving them.
             return Err(Error::EmailTooBackedUp(ErrorEmailTooBackedUp {}));
         }
-        // Check whether the next unread email has been waiting for too long:
+        // Check whether the oldest unread email has been waiting for too long:
         if unread_emails > 0 {
-            let next_cursor = cursor
-                .checked_add(1)
-                .ok_or(Error::TooManyEmails(ErrorTooManyEmails {}))?;
+            // The first unread email is at index `cursor` (0-based).
             let WordEmail { ts_after_epoch, .. } = self
                 .received_emails
                 .setter(recipient)
-                .get(next_cursor)
+                .get(cursor)
                 .unwrap()
                 .into();
-            let ts_deadline = current_ts + ts_after_epoch as u64;
-            // Add the timestamp from epoch to the latest unread email's time:
-            let is_past_deadline = ts_deadline > current_ts + UNREAD_WINDOW;
+            let time_since_epoch = current_ts - ts_epoch;
+            let is_past_deadline = time_since_epoch > ts_after_epoch as u64 + UNREAD_WINDOW;
             if is_past_deadline {
                 return Err(Error::PastDeadline(ErrorPastDeadline {}));
             }
@@ -207,10 +276,10 @@ impl Storage {
         }
         // Finally, add the email to the mix for the recipient:
         let ts_after_epoch = ts_after_epoch as u32;
-        let token_id = token_id.as_limbs()[0] as u32;
+        let token_id_u32 = token_id.as_limbs()[0] as u32;
         let email = WordEmail {
             refund_recipient,
-            token_id,
+            token_id: token_id_u32,
             ts_after_epoch,
             status: EmailStatus::RECEIVED,
         };
@@ -220,7 +289,7 @@ impl Storage {
         let config = Call::new_mutating(self);
         let sender = self.vm().msg_sender();
         let contract = self.vm().contract_address();
-        IERC20::new(token)
+        IERC20::new(token_addr)
             .transfer_from(self.vm(), config, sender, contract, min_amt)
             .map_err(|b| {
                 let b: Vec<u8> = b.into();
@@ -235,7 +304,7 @@ impl Storage {
         let sender = self.vm().msg_sender();
         let cursor = self.cursor.get(sender).into_limbs()[0] as usize;
         let until = self.received_emails.getter(sender).len();
-        let remaining = cursor - until;
+        let remaining = until - cursor;
         if remaining == 0 {
             return Ok((Vec::new(), Vec::new()));
         }
@@ -244,21 +313,16 @@ impl Storage {
         for i in cursor..until {
             let WordEmail {
                 token_id, status, ..
-            } = self
-                .received_emails
-                .getter(sender)
-                .get(i)
-                .unwrap()
-                .into();
+            } = self.received_emails.getter(sender).get(i).unwrap().into();
             if status != EmailStatus::RECEIVED {
                 continue;
             }
             let token_id = U32::from(token_id);
             let token_addr = self.ids_to_tokens.getter(sender).get(token_id);
-            let token = IERC20::new(token_addr);
-            let amt = self.token_asks.getter(sender).get(token_id);
+            let erc20 = IERC20::new(token_addr);
+            let amt = self.token_asks.getter(sender).get(token_id).unwrap();
             let config = Call::new_mutating(self);
-            token
+            erc20
                 .transfer(self.vm(), config, recipient, amt)
                 .map_err(|b| {
                     let b: Vec<u8> = b.into();
@@ -272,6 +336,65 @@ impl Storage {
         // the current JSON ABI compiler can't spit out the right type
         // for this.
         Ok((token_addrs, token_amts))
+    }
+
+    /// Refund an email that has passed the deadline. The original sender
+    /// can call this to reclaim their tokens if the recipient hasn't read
+    /// the email within the UNREAD_WINDOW.
+    pub fn refund(&mut self, recipient: Address, email_index: u32) -> Result<U256, Error> {
+        let current_ts = self.vm().block_timestamp();
+        let ts_epoch = self.ts_epoch.get().into_limbs()[0];
+        if ts_epoch == 0 {
+            return Err(Error::ContractNotConfigured(ErrorContractNotConfigured {}));
+        }
+        let sender = self.vm().msg_sender();
+        let WordEmail {
+            refund_recipient,
+            token_id,
+            ts_after_epoch,
+            status,
+        } = self
+            .received_emails
+            .getter(recipient)
+            .get(email_index)
+            .ok_or(Error::EmailNonexistent(ErrorEmailNonexistent {}))?
+            .into();
+        // Check it hasn't already been refunded.
+        if status == EmailStatus::REFUNDED {
+            return Err(Error::AlreadyRefunded(ErrorAlreadyRefunded {}));
+        }
+        // Check that the deadline has passed:
+        let time_since_epoch = current_ts - ts_epoch;
+        if time_since_epoch <= ts_after_epoch as u64 + UNREAD_WINDOW {
+            return Err(Error::NotPastDeadline(ErrorNotPastDeadline {}));
+        }
+        if sender != refund_recipient {
+            return Err(Error::NotYourEmail(ErrorNotYourEmail {}));
+        }
+        // Mark the email as refunded:
+        let refunded_email = WordEmail {
+            status: EmailStatus::REFUNDED,
+            refund_recipient,
+            token_id,
+            ts_after_epoch,
+        };
+        self.received_emails
+            .setter(recipient)
+            .setter(email_index)
+            .unwrap()
+            .set(refunded_email.into());
+        // Transfer the tokens back to the refund_recipient:
+        let token_id = U32::from(token_id);
+        let token_addr = self.ids_to_tokens.getter(recipient).get(token_id);
+        let amt = self.token_asks.getter(recipient).get(token_id).unwrap();
+        let config = Call::new_mutating(self);
+        IERC20::new(token_addr)
+            .transfer(self.vm(), config, refund_recipient, amt)
+            .map_err(|b| {
+                let b: Vec<u8> = b.into();
+                Error::Transfer(ErrorTransfer(b.into()))
+            })?;
+        Ok(amt)
     }
 }
 

@@ -1077,14 +1077,6 @@ ways that we’ll explain here, with the machines in their simplest forms (no lo
 is here for the WASM machine):
 
 ```tsx
-interface EvmMachine {
-  Code: Uint8Array;
-  Stack: Uint8Array;
-  Memory: Uint8Array;
-  Pc: number;
-  // Other information here like the sender's address, etc...
-}
-
 interface WasmMachine {
   Code: Uint8Array;
   OpStack: Uint8Array;
@@ -1450,8 +1442,7 @@ def execute(
 This code can be invoked to loop, counting a number until it has more than 10, breaking
 out:
 
-```rust
-
+```python
 if __name__ == "__main__":
 	code = [
 		# Push 1 onto the operand stack.
@@ -1891,7 +1882,3 @@ cryptocurrency that corresponds to the network (Ether), and executable code.
 
 5. The executable code that corresponds to an Account can be invoked by making a smart
 contract call. We showed how this takes place.
-
-This serves as an introduction to understand the basics of this. Developers interested in
-learning more should participate in this workshop. We will introduce the Stylus SDK, and
-how to deploy and use smart contracts on Arbitrum with Stylus.
