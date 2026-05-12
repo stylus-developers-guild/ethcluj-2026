@@ -6,7 +6,8 @@ const panel = document.getElementById("chat-panel");
 
 const panelStorageKey = "chat-panel-open";
 const historyStorageKey = `chat-history:${window.location.pathname}`;
-const apiKeyStorageKey = "openai-api-key";
+const API_KEY = "arb_3773a4165dc5bb832c724a57672f808b";
+const API_URL = "https://arbuilder.app/api/v1/chat/completions";
 
 function slugify(text) {
 	return String(text)
@@ -196,96 +197,10 @@ function setupPanelPersistence() {
 	});
 }
 
-/* ── OpenAI API key management ── */
+/* ── API key (hardcoded) ── */
 
 function getApiKey() {
-	return localStorage.getItem(apiKeyStorageKey) || "";
-}
-
-function setApiKey(key) {
-	localStorage.setItem(apiKeyStorageKey, key.trim());
-}
-
-function clearApiKey() {
-	localStorage.removeItem(apiKeyStorageKey);
-}
-
-function showKeyPrompt() {
-	const overlay = document.getElementById("key-overlay");
-	if (overlay) overlay.hidden = false;
-}
-
-function hideKeyPrompt() {
-	const overlay = document.getElementById("key-overlay");
-	if (overlay) overlay.hidden = true;
-}
-
-function initKeyUI() {
-	const overlay = document.createElement("div");
-	overlay.id = "key-overlay";
-	overlay.hidden = true;
-
-	overlay.innerHTML = `
-		<form id="key-form">
-			<p>Enter your <a href="https://platform.openai.com/api-keys" target="_blank"
-				rel="noopener">OpenAI API key</a> to enable chat.
-				It stays in your browser's local storage and is sent directly to OpenAI.</p>
-			<input id="key-input" type="password" placeholder="sk-..." autocomplete="off">
-			<div class="key-buttons">
-				<button type="submit">Save</button>
-				<button type="button" id="key-cancel">Cancel</button>
-			</div>
-		</form>
-	`;
-
-	const widget = document.getElementById("chat-widget");
-	widget.appendChild(overlay);
-
-	const keyForm = document.getElementById("key-form");
-	const keyInput = document.getElementById("key-input");
-	const keyCancel = document.getElementById("key-cancel");
-
-	keyForm.addEventListener("submit", (e) => {
-		e.preventDefault();
-		const val = keyInput.value.trim();
-		if (!val) return;
-		setApiKey(val);
-		keyInput.value = "";
-		hideKeyPrompt();
-		updateKeyStatus();
-	});
-
-	keyCancel.addEventListener("click", () => {
-		keyInput.value = "";
-		hideKeyPrompt();
-	});
-
-	// "change key" / "set key" link inside the chat panel
-	const status = document.createElement("div");
-	status.id = "key-status";
-	const summary = panel.querySelector("summary");
-	summary.parentNode.insertBefore(status, summary.nextSibling);
-	updateKeyStatus();
-}
-
-function updateKeyStatus() {
-	const status = document.getElementById("key-status");
-	if (!status) return;
-	const key = getApiKey();
-	if (key) {
-		const masked = key.slice(0, 6) + "..." + key.slice(-4);
-		status.innerHTML = `Key: <code>${masked}</code> <a href="#" id="key-change">change</a> · <a href="#" id="key-clear">clear</a>`;
-	} else {
-		status.innerHTML = `<a href="#" id="key-set">Set OpenAI API key</a> to enable chat`;
-	}
-
-	const changeLink = document.getElementById("key-change");
-	const clearLink = document.getElementById("key-clear");
-	const setLink = document.getElementById("key-set");
-
-	if (changeLink) changeLink.addEventListener("click", (e) => { e.preventDefault(); showKeyPrompt(); });
-	if (clearLink) clearLink.addEventListener("click", (e) => { e.preventDefault(); clearApiKey(); updateKeyStatus(); });
-	if (setLink) setLink.addEventListener("click", (e) => { e.preventDefault(); showKeyPrompt(); });
+	return API_KEY;
 }
 
 /* ── OpenAI chat completions via fetch ── */
@@ -324,20 +239,14 @@ function parseAssistantResponse(text) {
 }
 
 async function askPage(question) {
-	const key = getApiKey();
-	if (!key) {
-		showKeyPrompt();
-		throw new Error("Please set your OpenAI API key first.");
-	}
-
 	const sections = extractSections(article);
 	const systemPrompt = buildSystemPrompt(sections);
 
-	const response = await fetch("https://api.openai.com/v1/chat/completions", {
+	const response = await fetch(API_URL, {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
-			"Authorization": `Bearer ${key}`
+			"Authorization": `Bearer ${API_KEY}`
 		},
 		body: JSON.stringify({
 			model: "gpt-4.1-nano",
@@ -357,12 +266,6 @@ async function askPage(question) {
 			if (err && err.error && err.error.message) message = err.error.message;
 		} catch (_) {}
 
-		if (response.status === 401) {
-			clearApiKey();
-			updateKeyStatus();
-			throw new Error("Invalid API key. Please set a valid key.");
-		}
-
 		throw new Error(message);
 	}
 
@@ -375,18 +278,12 @@ async function askPage(question) {
 
 setupPanelPersistence();
 restoreHistory();
-initKeyUI();
 
 form.addEventListener("submit", async (e) => {
 	e.preventDefault();
 
 	const question = input.value.trim();
 	if (!question) return;
-
-	if (!getApiKey()) {
-		showKeyPrompt();
-		return;
-	}
 
 	addMessage("You", question);
 	input.value = "";
