@@ -25,3 +25,7 @@ strip = true
 lto = "fat"
 debug = false
 panic = "abort"
+
+[dev-dependencies]
+proptest = "1.11.0"
+proptest-derive = "0.8.0"
