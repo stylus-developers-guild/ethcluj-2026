@@ -79,7 +79,7 @@ impl StorageLender {
     pub fn ctor(&mut self, token: Address) -> Result<(), Error> {
         assert_or!(
             self.created.get().is_zero(),
-            Error::AlreadyInitialised(error::AlreadyInitialised {}).into()
+            Error::AlreadyInitialised(error::AlreadyInitialised {})
         );
         self.token_addr.set(token);
         self.created.set(U256::from(1));
@@ -171,7 +171,7 @@ impl StorageLender {
                     reason: Bytes::from(e),
                 })
             })?;
-        let cur_time: u64 = self.vm().block_timestamp().into();
+        let cur_time = self.vm().block_timestamp();
         let ticket = self.borrow_internal(cur_time, ausd_amt, token_collateral)?;
         self.ticket_owners.setter(ticket).set(recipient);
         let token_addr = self.token_addr.get();
@@ -254,7 +254,7 @@ impl StorageLender {
     }
 
     pub fn liquidate(&mut self, ticket: U256) -> Result<(), Error> {
-        self.liquidate_internal(ticket, self.vm().block_timestamp().into())
+        self.liquidate_internal(ticket, self.vm().block_timestamp())
     }
 
     fn repay_internal(
@@ -296,7 +296,7 @@ impl StorageLender {
         let sender = self.vm().msg_sender();
         assert_or!(
             self.ticket_owners.getter(ticket).get() == sender,
-            Error::NotOwner(error::NotOwner {}).into()
+            Error::NotOwner(error::NotOwner {})
         );
         let this = self.vm().contract_address();
         let arb = IERC20::new(ARB_ADDR);
