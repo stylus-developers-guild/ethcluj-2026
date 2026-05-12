@@ -51,6 +51,20 @@ pub enum Error {
     Transfer(Transfer),
 }
 
+impl core::fmt::Debug for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::AlreadyInitialised(_) => write!(f, "AlreadyInitialised"),
+            Self::InsufficientShares(_) => write!(f, "InsufficientShares"),
+            Self::ZeroAmount(_) => write!(f, "ZeroAmount"),
+            Self::BalanceOf(_) => write!(f, "BalanceOf",),
+            Self::TransferFrom(_) => write!(f, "TransferFrom",),
+            Self::BurnShares(_) => write!(f, "BurnShares",),
+            Self::Transfer(_) => write!(f, "Transfer",),
+        }
+    }
+}
+
 #[public]
 impl TokenVault {
     pub fn init(&mut self, token_addr: Address) -> Result<(), Error> {

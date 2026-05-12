@@ -45,12 +45,10 @@ pub struct WordEmail {
 }
 
 /// Maximum unread emails.
-#[mutants::skip]
 pub const MAX_UNREAD_EMAILS: u32 = 100;
 
 /// The unread window that any senders become eligible for a refund if
 /// the user does not read within that window for.
-#[mutants::skip]
 pub const UNREAD_WINDOW: u64 = 24 * 60 * 60 * 7;
 
 #[entrypoint]
@@ -126,7 +124,6 @@ pub enum Error {
     AlreadyRead(ErrorAlreadyRead),
 }
 
-#[mutants::skip]
 impl core::fmt::Debug for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -304,105 +301,17 @@ impl Storage {
     /// Read email sent to this sender, returning the tokens that were
     /// received, and the amount of emails that were "read".
     pub fn read_email(&mut self, recipient: Address) -> Result<(Vec<Address>, Vec<U256>), Error> {
-        let sender = self.vm().msg_sender();
-        let cursor = self.cursor.get(sender).into_limbs()[0] as usize;
-        let until = self.received_emails.getter(sender).len();
-        let remaining = until - cursor;
-        if remaining == 0 {
-            return Ok((Vec::new(), Vec::new()));
-        }
-        let mut token_addrs = Vec::with_capacity(remaining);
-        let mut token_amts = Vec::with_capacity(remaining);
-        for i in cursor..until {
-            let WordEmail {
-                token_id, status, ..
-            } = self.received_emails.getter(sender).get(i).unwrap().into();
-            if status != EmailStatus::RECEIVED {
-                continue;
-            }
-            let token_id = U32::from(token_id);
-            let token_addr = self.ids_to_tokens.getter(sender).get(token_id);
-            let erc20 = IERC20::new(token_addr);
-            let amt = self.token_asks.getter(sender).get(token_id).unwrap();
-            let config = Call::new_mutating(self);
-            erc20
-                .transfer(self.vm(), config, recipient, amt)
-                .map_err(|b| {
-                    let b: Vec<u8> = b.into();
-                    Error::Transfer(ErrorTransfer(b.into()))
-                })?;
-            token_addrs.push(token_addr);
-            token_amts.push(amt);
-        }
-        self.cursor.setter(sender).set(U32::from(until));
-        // Return what we made. Note: we have to return two lists here,
-        // the current JSON ABI compiler can't spit out the right type
-        // for this.
-        Ok((token_addrs, token_amts))
+        // This needs to be implemented in a way that advances the cursor
+        // while simultaneously not reading refunded messages. The user
+        // needs to receive the token that they were allocated.
+        todo!()
     }
 
     /// Refund an email that has passed the deadline. The original sender
     /// can call this to reclaim their tokens if the recipient hasn't read
     /// the email within the UNREAD_WINDOW.
     pub fn refund(&mut self, recipient: Address, email_index: u32) -> Result<U256, Error> {
-        let current_ts = self.vm().block_timestamp();
-        let ts_epoch = self.ts_epoch.get().into_limbs()[0];
-        if ts_epoch == 0 {
-            return Err(Error::ContractNotConfigured(ErrorContractNotConfigured {}));
-        }
-        let sender = self.vm().msg_sender();
-        let WordEmail {
-            refund_recipient,
-            token_id,
-            ts_after_epoch,
-            status,
-        } = self
-            .received_emails
-            .getter(recipient)
-            .get(email_index)
-            .ok_or(Error::EmailNonexistent(ErrorEmailNonexistent {}))?
-            .into();
-        // If the cursor exceeds this slot, then we assume this was already refunded:
-        let cursor = self.cursor.get(recipient);
-        if cursor > email_index {
-          return Err(Error::AlreadyRead(ErrorAlreadyRead{}));
-        }
-        // Check it hasn't already been refunded.
-        if status == EmailStatus::REFUNDED {
-            return Err(Error::AlreadyRefunded(ErrorAlreadyRefunded {}));
-        }
-        // Check that the deadline has passed:
-        let time_since_epoch = current_ts - ts_epoch;
-        if time_since_epoch <= ts_after_epoch as u64 + UNREAD_WINDOW {
-            return Err(Error::NotPastDeadline(ErrorNotPastDeadline {}));
-        }
-        if sender != refund_recipient {
-            return Err(Error::NotYourEmail(ErrorNotYourEmail {}));
-        }
-        // Mark the email as refunded:
-        let refunded_email = WordEmail {
-            status: EmailStatus::REFUNDED,
-            refund_recipient,
-            token_id,
-            ts_after_epoch,
-        };
-        self.received_emails
-            .setter(recipient)
-            .setter(email_index)
-            .unwrap()
-            .set(refunded_email.into());
-        // Transfer the tokens back to the refund_recipient:
-        let token_id = U32::from(token_id);
-        let token_addr = self.ids_to_tokens.getter(recipient).get(token_id);
-        let amt = self.token_asks.getter(recipient).get(token_id).unwrap();
-        let config = Call::new_mutating(self);
-        IERC20::new(token_addr)
-            .transfer(self.vm(), config, refund_recipient, amt)
-            .map_err(|b| {
-                let b: Vec<u8> = b.into();
-                Error::Transfer(ErrorTransfer(b.into()))
-            })?;
-        Ok(amt)
+        todo!()
     }
 }
 
