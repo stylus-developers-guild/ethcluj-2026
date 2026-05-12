@@ -3,7 +3,9 @@
 <head>
 	<meta charset="UTF-8">
 	<title>Arbitrum Workshop</title>
-
+	<meta property="og:title" content="Alex Baigent about page">
+	<meta property="og:description" content="Articles and content for the ETH Cluj 2026 Arbitrum workshop">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="style.css" type="text/css">
 
 	<!-- Prism theme -->
@@ -16,13 +18,15 @@
 		<h1><a href="index.html">Arbitrum Workshop</a></h1>
 	</header>
 
-	<nav id="side-bar">
-		{{NAV}}
-	</nav>
+	<div class="container-content">
+		<nav id="side-bar">
+			{{NAV}}
+		</nav>
 
-	<article id="page-content">
-	{{CONTENT}}
-	</article>
+		<article id="page-content">
+		{{CONTENT}}
+		</article>
+	</div>
 
 	<footer>
 		<p>{{FOOTER}}</p>
@@ -48,8 +52,12 @@
 	<script src="https://cdn.jsdelivr.net/npm/prismjs/components/prism-bash.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/prismjs/components/prism-javascript.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/prismjs/components/prism-typescript.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/prismjs/components/prism-go.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/prismjs/components/prism-go.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/prismjs/components/prism-rust.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/prismjs/components/prism-jsx.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/prismjs/components/prism-tsx.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/prismjs/components/prism-mermaid.min.js"></script>
 
 </body>
 </html>

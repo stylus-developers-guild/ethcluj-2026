@@ -1,0 +1,32 @@
+[package]
+name = "cluj-email"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+stylus-sdk = "0.10.5"
+alloy-sol-types = ">=0.0.0"
+mutants = "0.0.4"
+
+[dev-dependencies]
+stylus-sdk = { version = "0.10.5", features = ["stylus-test"] }
+proptest = "1"
+
+[features]
+contract-client-gen = []
+export-abi = ["stylus-sdk/export-abi"]
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[[bin]]
+name = "cluj-email"
+path = "src/main.rs"
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+strip = true
+lto = "fat"
+debug = false
+panic = "abort"

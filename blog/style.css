@@ -49,11 +49,23 @@ header a:focus-visible {
 
 /* sidebar */
 #side-bar {
-  position: absolute;
-  top: 80px;
-  left: 0;
-  width: 200px;
+  max-width: 200px;
   padding-left: 20px;
+}
+
+.container-content {
+  display: flex;
+  flex-direction: row;
+}
+
+@media (max-width: 600px) {
+  .container-content {
+    flex-direction: column;
+  }
+  article,
+  footer {
+    padding: 10px !important;
+  }
 }
 
 .side-title {
@@ -97,7 +109,6 @@ a:focus-visible {
 
 /* article */
 article {
-  margin: 80px 0 0 0;
   max-width: 800px;
 }
 
@@ -125,8 +136,8 @@ footer {
 /* article + footer alignment */
 article,
 footer {
-  margin-left: 240px;
-  margin-top: 0px;
+  padding-left: 240px;
+  padding-top: 0px;
 }
 
 /* chat widget */

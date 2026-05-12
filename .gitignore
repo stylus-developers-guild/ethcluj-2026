@@ -39,3 +39,4 @@ frontend-codealong/dist/
 *.sw?
 
 target
+.DS_Store

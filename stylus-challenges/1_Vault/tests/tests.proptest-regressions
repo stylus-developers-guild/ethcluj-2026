@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 95010b3c0273ae02a46f8b8ec85bdf3da7d175dae41cd090adface5014ecb985 # shrinks to tok = 0x0101010101010101010101010101010101010101, depositors = [(0x0101010101010101010101010101010101010102, 2)]

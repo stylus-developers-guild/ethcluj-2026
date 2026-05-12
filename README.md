@@ -19,3 +19,8 @@
 [Stackblitz full stack text editor](https://stackblitz.com/)
 
 [Wagmi ethereum react hooks, use this link for docs](https://wagmi.sh/)
+
+## Note on the contract code
+
+The contract code was not written with ERC20 safety in mind. There are no return value
+checks. Not for production!

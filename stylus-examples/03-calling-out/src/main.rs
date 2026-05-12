@@ -25,16 +25,16 @@ unsafe extern "C" {
 
 #[unsafe(no_mangle)]
 fn user_entrypoint(_: usize) -> usize {
-    let addr: [u8; 20] =
-        const_hex::decode_to_array("0000000000000000000000000000000000000064").unwrap();
+    let mut addr = [0u8; 20];
+    addr[19] = 64;
     let mut b = [0u8; 32];
-    let cd: [u8; 4] = const_hex::decode_to_array("a3b1b31d").unwrap();
+    let cd: [u8; 4] = [0xa3, 0xb1, 0xb3, 0x1d];
     let mut return_len = 0usize;
     unsafe {
         static_call_contract(
             addr.as_ptr(),
             cd.as_ptr(),
-            4,
+            cd.len(),
             u64::MAX,
             &mut return_len as *mut usize,
         );
