@@ -361,3 +361,21 @@ contract DEX {
         _res = _value1 < _value2 ? _value1 : _value2;
     }
 }
+
+// This is a function that will allow you to deploy all of the contracts from before in one contract deployment
+contract Deploy {
+    address public manager;
+    address public cusd;
+    address public wSpn = 0x22b9fa698b68bBA071B513959794E9a47d19214c;
+    address public flashBorrower;
+    address public dex;
+    address public vault;
+
+    constructor () {
+        manager = address(new Manager(wSpn, address(0)));
+        cusd = address(Manager(manager).cusd());
+        dex = address(DEX(cusd, wSpn));
+        vault = address(TokenVault(cusd));
+        flashBorrower = address(FlashBorrower(cusd, dex, manager));
+    }
+}
