@@ -27,5 +27,6 @@ debug = false
 panic = "abort"
 
 [dev-dependencies]
+stylus-sdk = { version = "0.10.5", features = ["stylus-test"] }
 proptest = "1.11.0"
 proptest-derive = "0.8.0"
