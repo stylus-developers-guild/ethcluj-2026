@@ -2,15 +2,19 @@
 
 ## Important links:
 
+[Joining the Telegram to ask questions](https://t.me/+mgaVt6wgBdYwNjg0)
+
+![QR code to join the Telegram](qrcode.svg "qrcode")
+
 [Website covering all the contents of the talk](https://stylus-developers-guild.github.io/ethcluj-2026/)
 
 [Metamask page to install metamask](https://metamask.io/)
 
-[Chainlist to add networks to metamask, add SuperPosition testnet!!](https://chainlist.org/)
+[Chainlist to add networks to metamask, add Superposition testnet!!](https://chainlist.org/)
 
-[SuperPosition faucet](https://faucet.superposition.so/)
+[Superposition faucet](https://faucet.superposition.so/)
 
-[SuperPosition testnet explorer](https://testnet-explorer.superposition.so/)
+[Superposition testnet explorer](https://testnet-explorer.superposition.so/)
 
 [Remix browser solidity text editor](https://remix.ethereum.org/)
 
