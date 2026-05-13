@@ -1,5 +1,5 @@
 #![cfg_attr(not(any(test, feature = "export-abi")), no_main)]
-#![no_std]
+#![cfg_attr(not(any(test, feature = "export-abi")), no_std)]
 
 use stylus_sdk::{
     alloy_primitives::{Address, Bytes, U256},
