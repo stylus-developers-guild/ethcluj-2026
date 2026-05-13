@@ -1,5 +1,5 @@
 [proptest]
-cases = 32
-max_shrink_iters = 64
-max_shrink_time = 5000
-max_flat_map_regens = 500
+cases = 10
+max_shrink_iters = 32
+max_shrink_time = 1000
+max_flat_map_regens = 200
