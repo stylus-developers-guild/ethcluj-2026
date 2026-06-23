@@ -9,6 +9,7 @@ version = "1.0"
 extensions = [
     "myst_parser",
     "sphinxcontrib.mermaid",
+    "sphinxext.opengraph",
 ]
 
 # MyST settings
@@ -37,6 +38,18 @@ master_doc = "index"
 suppress_warnings = [
     "epub.unknown_project_files",
     "misc.highlighting_failure",
+]
+
+# -- Options for OpenGraph meta tags -------------------------------------------
+ogp_site_url = "https://stylus-developers-guild.github.io/ethcluj-2026/"
+ogp_site_name = "ETH Cluj 2026: How To Build on Arbitrum"
+ogp_image = "_static/images/og-card.png"
+ogp_description_length = 200
+ogp_type = "article"
+ogp_custom_meta_tags = [
+    '<meta name="twitter:card" content="summary_large_image" />',
+    '<meta name="twitter:title" content="ETH Cluj 2026: How To Build on Arbitrum" />',
+    '<meta name="twitter:description" content="Free workshop book — Ethereum, Solidity, Arbitrum Stylus, WASM smart contracts, and full-stack dApp development." />',
 ]
 
 # -- Options for HTML output ---------------------------------------------------
