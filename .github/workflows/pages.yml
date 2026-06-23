@@ -32,6 +32,14 @@ jobs:
           cache: "pip"
           cache-dependency-path: docs/requirements.txt
 
+      - name: Set up Node (for mermaid-cli)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install mermaid-cli
+        run: npm install -g @mermaid-js/mermaid-cli
+
       - name: Install Sphinx and dependencies
         run: pip install -r docs/requirements.txt
 
@@ -54,7 +62,7 @@ jobs:
         run: |
           mkdir -p docs/_build/html/downloads
           cp docs/_build/epub/*.epub docs/_build/html/downloads/ || true
-          cp docs/_build/latex/*.pdf docs/_build/html/downloads/ || true
+          cp docs/_build/latex/*.pdf  docs/_build/html/downloads/ || true
           touch docs/_build/html/.nojekyll
 
       - name: Upload Pages artifact

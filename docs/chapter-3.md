@@ -993,7 +993,10 @@ interpreter.
 
 The process of the Arbitrum node running WASM converted code on-chain is like this:
 
-![Conversion of WASM on-chain](https://kroki.io/mermaid/svg/eNpLy8kvT85ILCpR8AniUlAIdwz2VdDVtVNwDnJ1DHEFMx2TSzLLEktSwZyg0jwAhvYOrQ==)
+```{mermaid}
+flowchart LR
+  WASM --> CREATE --> Activate --> Run
+```
 
 First, the programming language Rust is written so as to be is compiled to WASM using the
 Rust compiler leveraging LLVM.

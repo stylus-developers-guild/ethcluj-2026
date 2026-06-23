@@ -18,8 +18,12 @@ myst_enable_extensions = [
 ]
 myst_heading_anchors = 3
 
-# Mermaid: use CDN JS rendering
+# Mermaid: CDN JS for HTML, mmdc CLI for LaTeX/PDF/EPUB
 mermaid_output_format = "raw"
+mermaid_cmd = "mmdc"
+import os as _os
+_conf_dir = _os.path.dirname(_os.path.abspath(__file__))
+mermaid_params = ["-t", "neutral", "--scale", "2", "-p", _os.path.join(_conf_dir, "puppeteer-config.json")]
 
 # Source suffixes
 source_suffix = {
