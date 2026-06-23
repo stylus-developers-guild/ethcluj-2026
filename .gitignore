@@ -40,3 +40,6 @@ frontend-codealong/dist/
 
 target
 .DS_Store
+
+# Sphinx build output
+docs/_build/

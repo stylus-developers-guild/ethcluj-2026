@@ -1,0 +1,72 @@
+# -- Project information -------------------------------------------------------
+project = "ETH Cluj 2026: How To Build on Arbitrum"
+author = "Stylus Developers Guild"
+copyright = "2026, Stylus Developers Guild"
+release = "1.0"
+version = "1.0"
+
+# -- General configuration -----------------------------------------------------
+extensions = [
+    "myst_parser",
+    "sphinxcontrib.mermaid",
+]
+
+# MyST settings
+myst_enable_extensions = [
+    "dollarmath",
+    "colon_fence",
+]
+myst_heading_anchors = 3
+
+# Mermaid: use CDN JS rendering
+mermaid_output_format = "raw"
+
+# Source suffixes
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".md": "markdown",
+}
+
+master_doc = "index"
+
+# Suppress noisy warnings
+suppress_warnings = [
+    "epub.unknown_project_files",
+    "misc.highlighting_failure",
+]
+
+# -- Options for HTML output ---------------------------------------------------
+html_theme = "sphinx_book_theme"
+html_title = "ETH Cluj 2026"
+html_static_path = ["_static"]
+html_theme_options = {
+    "repository_url": "https://github.com/stylus-developers-guild/ethcluj-2026",
+    "use_repository_button": True,
+    "show_toc_level": 2,
+    "announcement": (
+        "📥 Download this book as "
+        '<a href="downloads/ETHCluj2026HowToBuildonArbitrum.epub">EPUB</a> or '
+        '<a href="downloads/ethcluj2026.pdf">PDF</a>'
+    ),
+}
+
+# -- Options for EPUB output ---------------------------------------------------
+epub_title = project
+epub_author = author
+epub_language = "en"
+epub_show_urls = "footnote"
+
+# -- Options for LaTeX/PDF output ----------------------------------------------
+latex_documents = [
+    (master_doc, "ethcluj2026.tex", project, author, "manual"),
+]
+latex_elements = {
+    "papersize": "a4paper",
+    "pointsize": "11pt",
+    "preamble": r"""
+\usepackage[utf8]{inputenc}
+""",
+}
+
+# Exclude build artifacts
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
