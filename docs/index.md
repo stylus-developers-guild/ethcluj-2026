@@ -1,3 +1,4 @@
+
 # ETH Cluj 2026: How To Build on Arbitrum
 
 Welcome to the ETH Cluj 2026 workshop materials. This book covers everything
@@ -7,7 +8,7 @@ WebAssembly, to building a full-stack dApp frontend.
 
 ## Important Links
 
-- [Telegram group for questions](https://t.me/+mgaVt6wgBdYwNjg0)
+- [Arbitrum WASM developers Telegram](https://t.me/+QQ1u_H5N8RwxYTQx)
 - [Metamask wallet](https://metamask.io/)
 - [Chainlist — add Superposition testnet](https://chainlist.org/)
 - [Superposition faucet](https://faucet.superposition.so/)
